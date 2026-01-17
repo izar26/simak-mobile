@@ -17,6 +17,14 @@ const DashboardScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) return 'Selamat Pagi';
+    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
+  };
+
   // Data Real dari API
   const stats = [
     { label: 'Hadir', value: attendanceStats.Hadir, icon: CheckCircle, color: 'bg-green-100', iconColor: '#16a34a' },
@@ -71,69 +79,76 @@ const DashboardScreen = ({ navigation }: any) => {
   const fotoUrl = siswa?.foto ? `${MAIN_APP_URL}/storage/${siswa.foto}` : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
+    <SafeAreaView className="flex-1 bg-slate-50">
+      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
       
       {/* Header Bar */}
-      <View className="flex-row justify-between items-center px-6 py-4 bg-white border-b border-gray-50">
-        <View className="flex-row items-center gap-3">
-          <View className="bg-blue-50 p-1 rounded-full border border-blue-100">
+      <View className="flex-row justify-between items-center px-6 py-5 bg-slate-50">
+        <View className="flex-1 flex-row items-center gap-4 mr-3">
+          <View className="p-[2px] bg-white rounded-full shadow-sm">
             {fotoUrl ? (
-              <Image source={{ uri: fotoUrl }} className="w-10 h-10 rounded-full" />
+              <Image source={{ uri: fotoUrl }} className="w-12 h-12 rounded-full" />
             ) : (
-              <View className="w-10 h-10 rounded-full bg-blue-200 items-center justify-center">
-                <User size={20} color="white" />
+              <View className="w-12 h-12 rounded-full bg-blue-100 items-center justify-center border border-blue-50">
+                <User size={24} color="#2563eb" />
               </View>
             )}
           </View>
-          <View>
-            <Text className="text-gray-500 text-xs font-medium">Selamat Datang,</Text>
-            <Text className="text-gray-800 font-bold text-base" numberOfLines={1}>
-              {siswa?.nama ? siswa.nama.split(' ')[0] : user?.username}
+          <View className="flex-1">
+            <Text className="text-slate-500 text-xs font-medium mb-0.5">{getGreeting()},</Text>
+            <Text className="text-slate-800 font-bold text-base leading-5" numberOfLines={2}>
+              {siswa?.nama || user?.username || 'Siswa'}
             </Text>
           </View>
         </View>
-        <TouchableOpacity className="bg-gray-50 p-2.5 rounded-full border border-gray-100 relative">
+        <TouchableOpacity className="bg-white p-3 rounded-full border border-slate-100 shadow-sm relative shrink-0">
           <Bell size={20} color="#64748b" />
-          <View className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white" />
+          <View className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border border-white" />
         </TouchableOpacity>
       </View>
 
       <ScrollView 
         className="flex-1" 
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />}
       >
         
-        {/* Banner Selamat Datang */}
-        <View className="mx-6 mt-6 mb-6 bg-blue-600 rounded-3xl p-6 shadow-lg shadow-blue-200 overflow-hidden relative">
-          <View className="absolute -right-10 -top-10 bg-white/10 w-40 h-40 rounded-full" />
-          <View className="absolute -left-10 -bottom-10 bg-white/10 w-32 h-32 rounded-full" />
-          
-          <Text className="text-white/80 font-medium text-xs mb-1">Status Akademik</Text>
-          <Text className="text-white font-black text-xl mb-4">
-            Semester {siswa?.tapel_aktif?.semester || '-'} {siswa?.tapel_aktif?.tahun_ajaran || ''}
-          </Text>
-          
-          <View className="flex-row gap-3">
-            {stats.map((item, index) => (
-              <View key={index} className="flex-1 bg-white/20 backdrop-blur-md rounded-xl p-3 items-center">
-                <Text className="text-white font-bold text-lg">{item.value}</Text>
-                <Text className="text-white/70 text-[10px] uppercase">{item.label}</Text>
-              </View>
-            ))}
+        {/* Banner Akademik */}
+        <View className="mx-6 mt-4 mb-8">
+          <View className="bg-blue-600 rounded-3xl p-6 shadow-xl shadow-blue-200 overflow-hidden relative min-h-[180px] justify-between">
+            {/* Dekorasi Background */}
+            <View className="absolute -right-6 -top-10 bg-blue-500 w-48 h-48 rounded-full opacity-50" />
+            <View className="absolute -left-10 -bottom-10 bg-blue-400 w-40 h-40 rounded-full opacity-40" />
+            <View className="absolute right-10 bottom-10 bg-white w-10 h-10 rounded-full opacity-10" />
+            
+            <View>
+              <Text className="text-blue-100 font-medium text-xs mb-1 tracking-wider uppercase">Semester Aktif</Text>
+              <Text className="text-white font-black text-2xl tracking-tight">
+                {siswa?.tapel_aktif?.tahun_ajaran || '2023/2024'} <Text className="font-light text-xl">({siswa?.tapel_aktif?.semester || 'Ganjil'})</Text>
+              </Text>
+            </View>
+            
+            <View className="flex-row gap-3 mt-6">
+              {stats.map((item, index) => (
+                <View key={index} className="flex-1 bg-white/10 border border-white/10 rounded-2xl p-2 items-center justify-center">
+                  <Text className="text-white font-bold text-xl">{item.value}</Text>
+                  <Text className="text-blue-100 text-[9px] uppercase font-bold tracking-wide mt-1">{item.label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
 
         {/* Menu Cepat (Quick Access) */}
         <View className="px-6 mb-8">
-          <Text className="text-gray-800 font-bold text-lg mb-4">Menu Cepat</Text>
-          <View className="flex-row justify-between flex-wrap gap-y-4">
+          <Text className="text-slate-800 font-bold text-lg mb-4">Akses Cepat</Text>
+          <View className="flex-row justify-between flex-wrap">
             {[
-              { label: 'Profil', icon: User, color: '#2563eb', bg: 'bg-blue-50', nav: 'Profil' },
-              { label: 'Jadwal', icon: Calendar, color: '#f59e0b', bg: 'bg-amber-50', nav: 'Jadwal' },
-              { label: 'Dokumen', icon: FileText, color: '#16a34a', bg: 'bg-green-50', nav: 'BerkasSaya' },
-              { label: 'Kartu', icon: CreditCard, color: '#dc2626', bg: 'bg-red-50', nav: 'KartuPelajar' },
+              { label: 'Profil', icon: User, color: '#2563eb', bg: 'bg-blue-50', border: 'border-blue-100', nav: 'Profil' },
+              { label: 'Jadwal', icon: Calendar, color: '#f59e0b', bg: 'bg-amber-50', border: 'border-amber-100', nav: 'Jadwal' },
+              { label: 'Dokumen', icon: FileText, color: '#16a34a', bg: 'bg-green-50', border: 'border-green-100', nav: 'BerkasSaya' },
+              { label: 'Kartu', icon: CreditCard, color: '#dc2626', bg: 'bg-red-50', border: 'border-red-100', nav: 'KartuPelajar' },
             ].map((menu, i) => (
               <TouchableOpacity 
                 key={i}
@@ -141,12 +156,12 @@ const DashboardScreen = ({ navigation }: any) => {
                     if (menu.nav === 'Profil' || menu.nav === 'Jadwal') navigation.navigate(menu.nav);
                     else navigation.navigate(menu.nav, { user });
                 }}
-                className="w-[22%] items-center"
+                className="w-[23%] items-center gap-2"
               >
-                <View className={`${menu.bg} w-14 h-14 rounded-2xl items-center justify-center mb-2 shadow-sm`}>
-                  <menu.icon size={24} color={menu.color} />
+                <View className={`${menu.bg} w-16 h-16 rounded-[20px] items-center justify-center border ${menu.border} shadow-sm`}>
+                  <menu.icon size={26} color={menu.color} strokeWidth={2} />
                 </View>
-                <Text className="text-gray-600 text-xs font-medium text-center">{menu.label}</Text>
+                <Text className="text-slate-600 text-xs font-semibold text-center">{menu.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -154,61 +169,68 @@ const DashboardScreen = ({ navigation }: any) => {
 
         {/* Jadwal Hari Ini */}
         <View className="px-6 mb-8">
-          <View className="flex-row justify-between items-end mb-4">
-            <Text className="text-gray-800 font-bold text-lg">Jadwal Hari Ini</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Jadwal')}>
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-slate-800 font-bold text-lg">Jadwal Hari Ini</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Jadwal')} className="bg-blue-50 px-3 py-1.5 rounded-full">
               <Text className="text-blue-600 text-xs font-bold">Lihat Semua</Text>
             </TouchableOpacity>
           </View>
           
-          <View className="gap-3">
+          <View className="gap-4">
             {jadwal.length > 0 ? (
               jadwal.map((item, i) => (
-                <View key={i} className="flex-row items-center bg-gray-50 border border-gray-100 p-4 rounded-2xl">
-                  <View className="w-12 items-center mr-4">
-                    <Text className="text-gray-800 font-bold text-sm">{item.jam.split(' - ')[0]}</Text>
-                    <Text className="text-gray-400 text-[10px]">{item.jam.split(' - ')[1]}</Text>
-                  </View>
-                  <View className="w-[1px] h-8 bg-gray-200 mr-4" />
-                  <View className="flex-1">
-                    <Text className="text-gray-800 font-bold text-sm" numberOfLines={1}>{item.mapel}</Text>
-                    <Text className="text-gray-500 text-xs" numberOfLines={1}>{item.guru}</Text>
-                  </View>
-                  <View className={`px-2 py-1 rounded-md ${
-                    item.status === 'Berlangsung' ? 'bg-green-100' : 
-                    item.status === 'Selesai' ? 'bg-gray-200' : 'bg-blue-100'
-                  }`}>
-                    <Text className={`text-[9px] font-bold ${
-                      item.status === 'Berlangsung' ? 'text-green-700' : 
-                      item.status === 'Selesai' ? 'text-gray-500' : 'text-blue-700'
-                    }`}>
-                      {item.status}
-                    </Text>
+                <View key={i} className="flex-row bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+                  <View className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                    item.status === 'Berlangsung' ? 'bg-green-500' : 'bg-blue-500'
+                  }`} />
+                  
+                  <View className="pl-3 flex-1 flex-row items-center">
+                    <View className="bg-slate-50 px-3 py-2 rounded-xl mr-4 items-center min-w-[70px]">
+                      <Text className="text-slate-800 font-bold text-sm">{item.jam.split(' - ')[0]}</Text>
+                      <Text className="text-slate-400 text-[10px] mt-0.5">{item.jam.split(' - ')[1]}</Text>
+                    </View>
+                    
+                    <View className="flex-1">
+                      <Text className="text-slate-800 font-bold text-base mb-1" numberOfLines={1}>{item.mapel}</Text>
+                      <View className="flex-row items-center gap-1.5">
+                        <User size={12} color="#94a3b8" />
+                        <Text className="text-slate-500 text-xs flex-1" numberOfLines={1}>{item.guru}</Text>
+                      </View>
+                    </View>
+
+                    {item.status === 'Berlangsung' && (
+                      <View className="bg-green-100 px-2 py-1 rounded-lg">
+                        <Text className="text-green-700 text-[10px] font-bold">LIVE</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               ))
             ) : (
-              <View className="items-center py-6 bg-gray-50 rounded-2xl border-dashed border border-gray-200">
-                <Text className="text-gray-400 text-sm">Tidak ada jadwal pelajaran hari ini.</Text>
+              <View className="items-center py-10 bg-white rounded-3xl border border-dashed border-slate-200">
+                <View className="bg-slate-50 p-4 rounded-full mb-3">
+                  <Calendar size={32} color="#cbd5e1" />
+                </View>
+                <Text className="text-slate-400 text-sm font-medium">Tidak ada jadwal pelajaran hari ini</Text>
               </View>
             )}
           </View>
         </View>
 
         {/* Pengumuman Terbaru */}
-        <View className="px-6 mb-10">
-          <Text className="text-gray-800 font-bold text-lg mb-4">Pengumuman</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6">
+        <View className="pl-6 mb-4">
+          <Text className="text-slate-800 font-bold text-lg mb-4">Papan Pengumuman</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pr-6" contentContainerStyle={{ paddingRight: 24 }}>
             {pengumuman.map((item, i) => (
-              <View key={i} className="w-72 bg-white border border-gray-100 shadow-sm p-4 rounded-2xl mr-4">
-                <View className="flex-row justify-between items-start mb-2">
-                  <View className="bg-orange-50 px-2 py-1 rounded-lg">
-                    <Text className="text-orange-600 text-[10px] font-bold">INFO</Text>
+              <View key={i} className="w-80 bg-white border border-slate-100 shadow-sm p-5 rounded-3xl mr-4">
+                <View className="flex-row justify-between items-start mb-3">
+                  <View className="bg-orange-100 px-3 py-1 rounded-full border border-orange-50">
+                    <Text className="text-orange-700 text-[10px] font-bold">PENTING</Text>
                   </View>
-                  <Text className="text-gray-400 text-[10px]">{item.date}</Text>
+                  <Text className="text-slate-400 text-xs font-medium">{item.date}</Text>
                 </View>
-                <Text className="text-gray-800 font-bold text-sm mb-1 line-clamp-1">{item.title}</Text>
-                <Text className="text-gray-500 text-xs leading-4" numberOfLines={2}>{item.desc}</Text>
+                <Text className="text-slate-800 font-bold text-lg mb-2 leading-6">{item.title}</Text>
+                <Text className="text-slate-500 text-sm leading-5" numberOfLines={3}>{item.desc}</Text>
               </View>
             ))}
           </ScrollView>
