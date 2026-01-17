@@ -26,7 +26,7 @@ echo.
 echo [3/4] Starting React Native Metro Bundler (New Window)...
 cd frontend
 :: Membuka jendela baru untuk Metro Bundler
-start "React Native Metro (Port 8081)" npm start
+start "React Native Metro (Port 8081)" npm start -- --reset-cache
 cd ..
 
 echo.
