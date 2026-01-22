@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Dimensions, TextInput, Modal, Image, Linking, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, FileText, Upload, Trash2, ExternalLink, XCircle, Eye, Download, AlertCircle, CheckCircle } from 'lucide-react-native';
-import DocumentPicker, { types, isCancel } from 'react-native-document-picker';
+import { pick, types, isCancel } from '@react-native-documents/picker';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import api from '../../services/api';
@@ -278,7 +278,7 @@ const BerkasScreen = ({ navigation, route }: any) => {
             } catch (err) { console.log('Picker cancelled'); }
         } else {
             try {
-              const result = await DocumentPicker.pick({
+              const result = await pick({
                 type: [types.pdf],
                 presentationStyle: 'fullScreen',
               });
