@@ -1,50 +1,62 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, PanResponder, Animated, Dimensions, InteractionManager, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Save, Info, Lock, User, MapPin, Heart, Users, AlertCircle, Phone, BookOpen, Truck, FileText, Camera, CheckCircle, XCircle, Award } from 'lucide-react-native';
+import { ChevronLeft, Save, Info, Lock, User, MapPin, Heart, Users, AlertCircle, Phone, BookOpen, Truck, FileText, Camera, CheckCircle, XCircle, Award, Calendar } from 'lucide-react-native';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import ImageCropPicker from 'react-native-image-crop-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { MAIN_APP_URL } from '@env';
 import api from '../../services/api';
 import Skeleton from '../../components/Skeleton';
 import StatusModal from '../../components/StatusModal';
 
 const lockedColumns = [
-  'nama', 'nipd', 'nisn', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir',
-  'agama_id_str', 'kewarganegaraan', 'kebutuhan_khusus',
-  'tinggi_badan', 'berat_badan',
-  'nama_ayah', 'nama_ibu', 'nama_wali',
+  'nama', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir', 
+  'agama_id_str', 'kewarganegaraan', 
+  'tinggi_badan', 'berat_badan', 
+  'nama_ayah', 'nama_ibu', 'nama_wali', 
   'pekerjaan_ayah_id_str', 'pekerjaan_ibu_id_str', 'pekerjaan_wali_id_str',
   'tahun_lahir_ayah', 'tahun_lahir_ibu', 'tahun_lahir_wali',
   'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
   'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
-  'alamat_jalan', 'kebutuhan_khusus'
+  'alamat_jalan', 
+  'no_hp_akun', 'nomor_telepon_rumah',
+  'nik' 
 ];
 
-// Reusable Input Field with Modern Design
+const disabledColumns = [
+  'nipd', 'nisn', 'kebutuhan_khusus', 'email_akun'
+];
+
 const InputField = ({ label, fieldKey, icon: Icon, keyboardType = 'default', placeholder = '', value, onChangeText }: any) => {
   const isLocked = lockedColumns.includes(fieldKey);
+  const isDisabled = disabledColumns.includes(fieldKey);
   
   return (
     <View className="mb-6">
       <View className="flex-row items-center mb-2 px-1">
         <Text className="text-slate-600 text-xs font-bold uppercase tracking-wider">{label}</Text>
-        {isLocked && (
+        {isLocked && !isDisabled && (
           <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md ml-2 border border-amber-100">
             <Lock size={10} color="#d97706" />
             <Text className="text-[9px] text-amber-700 font-bold ml-1 uppercase">Verifikasi</Text>
           </View>
         )}
+        {isDisabled && (
+          <View className="flex-row items-center bg-slate-100 px-2 py-0.5 rounded-md ml-2">
+            <Text className="text-[9px] text-slate-500 font-bold ml-1 uppercase">Terkunci</Text>
+          </View>
+        )}
       </View>
       <View 
         className={`flex-row items-center rounded-2xl px-4 border transition-all 
-        ${isLocked ? 'bg-amber-50/20 border-amber-200' : 'bg-white border-slate-200 focus:border-blue-500 shadow-sm'}`}
+        ${isDisabled ? 'bg-slate-100 border-slate-200' : isLocked ? 'bg-amber-50/20 border-amber-200' : 'bg-white border-slate-200 focus:border-blue-500 shadow-sm'}`}
         style={{ height: 56 }}
       >
-        <Icon size={20} color={isLocked ? '#d97706' : '#94a3b8'} />
+        <Icon size={20} color={isDisabled ? '#cbd5e1' : (isLocked ? '#d97706' : '#94a3b8')} />
         <TextInput
-          className="flex-1 ml-3 text-slate-800 font-semibold text-sm h-full"
-          editable={true}
+          className={`flex-1 ml-3 font-semibold text-sm h-full ${isDisabled ? 'text-slate-400' : 'text-slate-800'}`}
+          editable={!isDisabled}
           value={value ? value.toString() : ''}
           onChangeText={(text) => onChangeText(fieldKey, text)}
           placeholder={placeholder || `Masukkan ${label}`}
@@ -61,8 +73,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const DraggableModal = ({ visible, onClose, title, children }: any) => {
   const [panY] = useState(new Animated.Value(0));
-  
   const resetPosition = Animated.timing(panY, { toValue: 0, duration: 250, useNativeDriver: true });
+  
   const panResponder = useState(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -145,6 +157,122 @@ const SelectField = ({ label, fieldKey, icon: Icon, value, options, onSelect }: 
   );
 };
 
+// DateField using @react-native-community/datetimepicker
+const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
+  const [show, setShow] = useState(false);
+  const isLocked = lockedColumns.includes(fieldKey);
+
+  const dateValue = value ? new Date(value) : new Date();
+
+  const handleChange = (event: any, selectedDate?: Date) => {
+    setShow(false);
+    if (selectedDate) {
+      // Format YYYY-MM-DD
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      onChangeText(fieldKey, `${year}-${month}-${day}`);
+    }
+  };
+
+  return (
+    <View className="mb-6">
+      <View className="flex-row items-center mb-2 px-1">
+        <Text className="text-slate-600 text-xs font-bold uppercase tracking-wider">{label}</Text>
+        {isLocked && (
+          <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md ml-2 border border-amber-100">
+            <Lock size={10} color="#d97706" />
+            <Text className="text-[9px] text-amber-700 font-bold ml-1 uppercase">Verifikasi</Text>
+          </View>
+        )}
+      </View>
+      <TouchableOpacity 
+        onPress={() => setShow(true)}
+        className={`flex-row items-center rounded-2xl px-4 border transition-all ${isLocked ? 'bg-amber-50/20 border-amber-200' : 'bg-white border-slate-200 shadow-sm'}`}
+        style={{ height: 56 }}
+      >
+        <Calendar size={20} color={isLocked ? '#d97706' : '#94a3b8'} />
+        <Text className={`flex-1 ml-3 text-sm ${value ? 'text-slate-800 font-semibold' : 'text-slate-400'}`}>
+          {value ? new Date(value).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : `Pilih ${label}`}
+        </Text>
+      </TouchableOpacity>
+
+      {show && (
+        <DateTimePicker
+          value={dateValue}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleChange}
+          maximumDate={new Date()} // Tidak boleh masa depan
+        />
+      )}
+    </View>
+  );
+};
+
+const RegionPicker = ({ formData, onChange }: any) => {
+  const [loading, setLoading] = useState(false);
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [regencies, setRegencies] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [villages, setVillages] = useState<any[]>([]);
+
+  const BASE_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/provinces.json`).then(res => res.json()).then(data => setProvinces(data)).catch(console.error);
+  }, []);
+
+  const findIdByName = (list: any[], name: string) => list.find(item => item.name === name)?.id;
+
+  const handleSelectProv = async (key: string, name: string) => {
+    onChange('provinsi', name);
+    onChange('kabupaten_kota', ''); onChange('kecamatan', ''); onChange('desa_kelurahan', '');
+    const id = findIdByName(provinces, name);
+    if (id) {
+        setLoading(true);
+        const res = await fetch(`${BASE_URL}/regencies/${id}.json`);
+        setRegencies(await res.json());
+        setLoading(false);
+    }
+  };
+
+  const handleSelectReg = async (key: string, name: string) => {
+    onChange('kabupaten_kota', name);
+    onChange('kecamatan', ''); onChange('desa_kelurahan', '');
+    const provId = findIdByName(provinces, formData.provinsi);
+    const regId = findIdByName(regencies, name);
+    if (regId) {
+        setLoading(true);
+        const res = await fetch(`${BASE_URL}/districts/${regId}.json`);
+        setDistricts(await res.json());
+        setLoading(false);
+    }
+  };
+
+  const handleSelectDist = async (key: string, name: string) => {
+    onChange('kecamatan', name);
+    onChange('desa_kelurahan', '');
+    const distId = findIdByName(districts, name);
+    if (distId) {
+        setLoading(true);
+        const res = await fetch(`${BASE_URL}/villages/${distId}.json`);
+        setVillages(await res.json());
+        setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <SelectField label="Provinsi" fieldKey="provinsi" icon={MapPin} value={formData.provinsi} options={provinces.map(p => p.name)} onSelect={handleSelectProv} />
+      <SelectField label="Kabupaten / Kota" fieldKey="kabupaten_kota" icon={MapPin} value={formData.kabupaten_kota} options={regencies.map(r => r.name)} onSelect={handleSelectReg} />
+      {(!regencies.length && !formData.kabupaten_kota) && formData.provinsi && <Text className="text-xs text-blue-500 mb-2 px-2">* Sedang memuat kabupaten...</Text>}
+      <SelectField label="Kecamatan" fieldKey="kecamatan" icon={MapPin} value={formData.kecamatan} options={districts.map(d => d.name)} onSelect={handleSelectDist} />
+      <SelectField label="Desa / Kelurahan" fieldKey="desa_kelurahan" icon={MapPin} value={formData.desa_kelurahan} options={villages.map(v => v.name)} onSelect={(k, v) => onChange(k, v)} />
+    </>
+  );
+};
+
 const FormSection = ({ title, icon: Icon, children }: any) => (
   <View className="bg-white rounded-[32px] p-6 mb-8 shadow-sm border border-slate-100">
     <View className="flex-row items-center mb-6 pb-4 border-b border-slate-50">
@@ -168,111 +296,55 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   });
   const [loading, setLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
-  
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false, title: '', message: '', type: 'success', onClose: () => {}
-  });
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', type: 'success', onClose: () => {} });
+  const [isReady, setIsReady] = useState(false);
+  const [activeTab, setActiveTab] = useState('Pribadi');
+  const [photoVersion, setPhotoVersion] = useState(0);
 
-        const [isReady, setIsReady] = useState(false);
-        const [activeTab, setActiveTab] = useState('Pribadi');
-        const [photoVersion, setPhotoVersion] = useState(0); // Cache buster state
+  const tabs = [
+    { id: 'Pribadi', label: 'Data Diri', icon: User },
+    { id: 'Alamat', label: 'Domisili', icon: MapPin },
+    { id: 'Keluarga', label: 'Keluarga', icon: Users },
+    { id: 'Lainnya', label: 'Lainnya', icon: BookOpen },
+  ];
+
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => { setIsReady(true); });
+    return () => task.cancel();
+  }, []);
+
+  const handleChange = (key: string, value: string) => setFormData((prev: any) => ({ ...prev, [key]: value }));
+
+  const uploadPhoto = async (file: any) => {
+    setLoading(true);
+    try {
+      const data = new FormData();
+      data.append('foto', { uri: file.uri, type: file.type, name: file.name } as any);
       
-        const tabs = [        { id: 'Pribadi', label: 'Data Diri', icon: User },
-        { id: 'Alamat', label: 'Domisili', icon: MapPin },
-        { id: 'Keluarga', label: 'Keluarga', icon: Users },
-        { id: 'Lainnya', label: 'Lainnya', icon: BookOpen },
-      ];
-    
-      useEffect(() => {
-      const task = InteractionManager.runAfterInteractions(() => { setIsReady(true); });
+      const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const newPhotoPath = response.data.user?.siswa?.foto;
+      if (newPhotoPath) {
+         setFormData((prev: any) => ({ ...prev, foto: newPhotoPath }));
+         setPhotoVersion(v => v + 1);
+      }
+      setAlertConfig({ visible: true, title: 'Foto Berhasil!', message: 'Foto profil Anda telah diperbarui.', type: 'success', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
+    } catch (error: any) {
+      setAlertConfig({ visible: true, title: 'Gagal Upload', message: error.message, type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
+    } finally { setLoading(false); }
+  };
 
-      return () => task.cancel();
-
-    }, []);
-
-  
-
-    const handleChange = (key: string, value: string) => setFormData((prev: any) => ({ ...prev, [key]: value }));
-
-  
-
-    const uploadPhoto = async (file: any) => {
-
-      setLoading(true);
-
-      try {
-
-        const data = new FormData();
-
-        data.append('foto', { uri: file.uri, type: file.type, name: file.name } as any);
-
-        
-
-        console.log('Uploading photo...');
-
-        const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
-
-        
-
-        const newPhotoPath = response.data.user?.siswa?.foto;
-
-        if (newPhotoPath) {
-
-           setFormData((prev: any) => ({ ...prev, foto: newPhotoPath }));
-
-           setPhotoVersion(v => v + 1); // Force image refresh
-
-        }
-
-        
-
-        setAlertConfig({ visible: true, title: 'Foto Berhasil!', message: 'Foto profil Anda telah diperbarui.', type: 'success', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
-
-      } catch (error: any) {
-
-        setAlertConfig({ visible: true, title: 'Gagal Upload', message: error.message, type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
-
-      } finally { setLoading(false); }
-
-    };
-
-  
-
-    const handleSelectPhoto = async () => {
-
-      try {
-
-        const image = await ImageCropPicker.openPicker({ width: 600, height: 800, cropping: true, cropperCircleOverlay: true, mediaType: 'photo', compressImageQuality: 0.8 });
-
-        if (image.size && image.size > 2 * 1024 * 1024) {
-
-            setAlertConfig({ visible: true, title: 'Terlalu Besar', message: 'Maksimal 2 MB.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
-
-            return;
-
-        }
-
-        const selectedFile = { uri: image.path, type: image.mime, name: image.path.split('/').pop() || 'profile.jpg', size: image.size };
-
-        setSelectedPhoto(selectedFile);
-
-        uploadPhoto(selectedFile);
-
-      } catch (err) { console.log('Cancelled'); }
-
-    };
-
-  
-
-    const currentPhotoUrl = selectedPhoto 
-
-      ? selectedPhoto.uri 
-
-      : (formData.foto 
-
-          ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}?v=${photoVersion}`) 
-
-          : null);
+  const handleSelectPhoto = async () => {
+    try {
+      const image = await ImageCropPicker.openPicker({ width: 600, height: 800, cropping: true, cropperCircleOverlay: true, mediaType: 'photo', compressImageQuality: 0.8 });
+      if (image.size && image.size > 2 * 1024 * 1024) {
+          setAlertConfig({ visible: true, title: 'Terlalu Besar', message: 'Maksimal 2 MB.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
+          return;
+      }
+      const selectedFile = { uri: image.path, type: image.mime, name: image.path.split('/').pop() || 'profile.jpg', size: image.size };
+      setSelectedPhoto(selectedFile);
+      uploadPhoto(selectedFile);
+    } catch (err) { console.log('Cancelled'); }
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -287,15 +359,17 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       if (response.data.pending_request && Object.keys(response.data.pending_request).length > 0) {
         message += '\n\nBeberapa data memerlukan verifikasi sekolah sebelum berubah.';
       }
-      
-      setAlertConfig({
-        visible: true, title: 'Berhasil Disimpan!', message: message, type: 'success',
-        onClose: () => { setAlertConfig(prev => ({...prev, visible: false})); navigation.goBack(); }
-      });
+      setAlertConfig({ visible: true, title: 'Berhasil Disimpan!', message: message, type: 'success', onClose: () => { setAlertConfig(prev => ({...prev, visible: false})); navigation.goBack(); } });
     } catch (error: any) {
       setAlertConfig({ visible: true, title: 'Gagal Menyimpan', message: 'Terjadi kesalahan jaringan.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
     } finally { setLoading(false); }
   };
+
+  const currentPhotoUrl = selectedPhoto 
+    ? selectedPhoto.uri 
+    : (formData.foto 
+        ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}?v=${photoVersion}`) 
+        : null);
 
   if (!isReady) {
     return (
@@ -323,19 +397,18 @@ const EditProfileScreen = ({ navigation, route }: any) => {
         <View className="w-10" /> 
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
-        <Reanimated.ScrollView entering={FadeIn.duration(500)} className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+        className="flex-1"
+      >
+        <Reanimated.ScrollView entering={FadeIn.duration(500)} className="flex-1" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 100 }}>
           
-          {/* Photo Section */}
           <View className="items-center py-8 bg-white mb-6 border-b border-slate-50">
             <TouchableOpacity onPress={handleSelectPhoto} className="relative active:opacity-90">
                 <View className="w-32 h-32 rounded-full bg-slate-100 border-4 border-white shadow-xl shadow-slate-200 items-center justify-center overflow-hidden">
                     {currentPhotoUrl ? (
-                        <Image 
-                          source={{ uri: currentPhotoUrl }} 
-                          className="w-full h-full" 
-                          resizeMode="cover"
-                        />
+                        <Image source={{ uri: currentPhotoUrl }} className="w-full h-full" resizeMode="cover" />
                     ) : (
                         <User size={48} color="#cbd5e1" />
                     )}
@@ -345,9 +418,15 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                 </View>
             </TouchableOpacity>
             <Text className="text-slate-400 font-bold text-xs mt-4 uppercase tracking-widest">Ketuk untuk ubah</Text>
+            
+            <View className="mt-4 px-6 py-3 bg-amber-50 rounded-2xl border border-amber-100 flex-row items-center shadow-sm mx-6">
+                <Info size={16} color="#d97706" />
+                <Text className="text-amber-800 text-[11px] font-bold ml-3 flex-1 leading-4">
+                    WAJIB: Foto Formal, Background Merah/Biru & Seragam Sekolah
+                </Text>
+            </View>
           </View>
 
-          {/* Info Banner */}
           <View className="px-6 mb-6">
              <View className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex-row items-center">
                 <Info size={18} color="#2563eb" />
@@ -357,7 +436,6 @@ const EditProfileScreen = ({ navigation, route }: any) => {
              </View>
           </View>
 
-          {/* TAB NAVIGATION */}
           <View className="px-6 mb-6 h-12">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 24 }}>
               {tabs.map((tab) => {
@@ -377,30 +455,31 @@ const EditProfileScreen = ({ navigation, route }: any) => {
             </ScrollView>
           </View>
 
-          <View className="px-6 pb-32">
+          <View className="px-6 pb-64">
             
             {activeTab === 'Pribadi' && (
               <FormSection title="Biodata Diri" icon={User}>
                 <InputField label="Nama Lengkap" fieldKey="nama" icon={User} value={formData.nama} onChangeText={handleChange} />
                 <InputField label="NIPD" fieldKey="nipd" icon={Info} keyboardType="numeric" value={formData.nipd} onChangeText={handleChange} />
+                <InputField label="NISN" fieldKey="nisn" icon={Info} keyboardType="numeric" value={formData.nisn} onChangeText={handleChange} />
                 <InputField label="NIK" fieldKey="nik" icon={Info} keyboardType="numeric" value={formData.nik} onChangeText={handleChange} />
                 <InputField label="Nomor KK" fieldKey="no_kk" icon={FileText} keyboardType="numeric" value={formData.no_kk} onChangeText={handleChange} />
-                <View className="flex-row gap-4">
-                  <View className="flex-1"><InputField label="Tempat Lahir" fieldKey="tempat_lahir" icon={MapPin} value={formData.tempat_lahir} onChangeText={handleChange} /></View>
-                  <View className="flex-1"><InputField label="Tgl Lahir" fieldKey="tanggal_lahir" icon={AlertCircle} placeholder="YYYY-MM-DD" value={formData.tanggal_lahir} onChangeText={handleChange} /></View>
-                </View>
+                
+                <InputField label="Tempat Lahir" fieldKey="tempat_lahir" icon={MapPin} value={formData.tempat_lahir} onChangeText={handleChange} />
+                <DateField label="Tgl Lahir" fieldKey="tanggal_lahir" value={formData.tanggal_lahir} onChangeText={handleChange} />
+                
                 <InputField label="Berkebutuhan Khusus" fieldKey="kebutuhan_khusus" icon={Info} value={formData.kebutuhan_khusus} onChangeText={handleChange} />
                 
-                {/* Read Only Account Info */}
-                <View className="bg-slate-50 p-5 rounded-3xl mb-6 border border-slate-100">
-                   <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">Akun Terdaftar</Text>
-                   <View className="gap-4">
-                      <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">Username/Email</Text><Text className="font-bold text-slate-700 text-sm">{formData.email_akun}</Text></View>
-                      <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">Telp Rumah</Text><Text className="font-bold text-slate-700 text-sm">{formData.nomor_telepon_rumah}</Text></View>
-                      <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">HP Akun</Text><Text className="font-bold text-slate-700 text-sm">{formData.no_hp_akun}</Text></View>
-                   </View>
-                </View>
+                <View className="h-[1px] bg-slate-100 my-4" />
+                <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Kontak Akun</Text>
+                
+                <InputField label="Email Akun" fieldKey="email_akun" icon={FileText} value={formData.email_akun} onChangeText={handleChange} />
+                <InputField label="No. HP Akun" fieldKey="no_hp_akun" icon={Phone} keyboardType="phone-pad" value={formData.no_hp_akun} onChangeText={handleChange} />
+                <InputField label="Telp Rumah" fieldKey="nomor_telepon_rumah" icon={Phone} keyboardType="phone-pad" value={formData.nomor_telepon_rumah} onChangeText={handleChange} />
 
+                <View className="h-[1px] bg-slate-100 my-4" />
+                <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4 ml-1">Kontak Siswa</Text>
+                
                 <InputField label="WhatsApp Siswa" fieldKey="no_wa" icon={Phone} keyboardType="phone-pad" value={formData.no_wa} onChangeText={handleChange} />
                 <View className="flex-row gap-4">
                   <View className="flex-1"><InputField label="Tinggi (cm)" fieldKey="tinggi_badan" icon={Info} keyboardType="numeric" value={formData.tinggi_badan} onChangeText={handleChange} /></View>
@@ -416,9 +495,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                   <View className="flex-1"><InputField label="RT" fieldKey="rt" icon={MapPin} keyboardType="numeric" value={formData.rt} onChangeText={handleChange} /></View>
                   <View className="flex-1"><InputField label="RW" fieldKey="rw" icon={MapPin} keyboardType="numeric" value={formData.rw} onChangeText={handleChange} /></View>
                 </View>
-                <InputField label="Desa / Kelurahan" fieldKey="desa_kelurahan" icon={MapPin} value={formData.desa_kelurahan} onChangeText={handleChange} />
-                <InputField label="Kecamatan" fieldKey="kecamatan" icon={MapPin} value={formData.kecamatan} onChangeText={handleChange} />
-                <InputField label="Kabupaten / Kota" fieldKey="kabupaten_kota" icon={MapPin} value={formData.kabupaten_kota} onChangeText={handleChange} />
+                <RegionPicker formData={formData} onChange={handleChange} />
                 <InputField label="Kode Pos" fieldKey="kode_pos" icon={MapPin} keyboardType="numeric" value={formData.kode_pos} onChangeText={handleChange} />
               </FormSection>
             )}
@@ -445,6 +522,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                   <InputField label="No. Ijazah" fieldKey="no_seri_ijazah" icon={FileText} value={formData.no_seri_ijazah} onChangeText={handleChange} />
                   <InputField label="No. SKHUN" fieldKey="no_seri_skhun" icon={FileText} value={formData.no_seri_skhun} onChangeText={handleChange} />
                   <InputField label="No. Peserta UN" fieldKey="no_ujian_nasional" icon={FileText} value={formData.no_ujian_nasional} onChangeText={handleChange} />
+                  <InputField label="No. Reg Akta Lahir" fieldKey="no_registrasi_akta_lahir" icon={FileText} value={formData.no_registrasi_akta_lahir} onChangeText={handleChange} />
                 </FormSection>
               </>
             )}
@@ -471,6 +549,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                   <InputField label="Nama Wali" fieldKey="nama_wali" icon={User} value={formData.nama_wali} onChangeText={handleChange} />
                   <InputField label="Tahun Lahir" fieldKey="tahun_lahir_wali" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_wali} onChangeText={handleChange} />
                   <InputField label="Pekerjaan" fieldKey="pekerjaan_wali_id_str" icon={Info} value={formData.pekerjaan_wali_id_str} onChangeText={handleChange} />
+                  <InputField label="Penghasilan" fieldKey="penghasilan_wali_id_str" icon={Heart} value={formData.penghasilan_wali_id_str} onChangeText={handleChange} />
                   <InputField label="WhatsApp Wali" fieldKey="no_wa_wali" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_wali} onChangeText={handleChange} />
                 </FormSection>
               </>

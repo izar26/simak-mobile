@@ -25,7 +25,8 @@ class SiswaController extends Controller
         'tahun_lahir_ayah', 'tahun_lahir_ibu', 'tahun_lahir_wali',
         'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
         'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
-        'alamat_jalan'
+        'alamat_jalan',
+        'nik', 'nomor_telepon_rumah', 'no_wa', 'no_hp_akun'
     ];
 
     public function uploadBerkas(Request $request)
@@ -132,17 +133,18 @@ class SiswaController extends Controller
         $ignoredColumns = ['id', 'peserta_didik_id', 'created_at', 'updated_at', 'berkas', '_token'];
 
         foreach ($input as $key => $value) {
-            // KRITIKAL: Lewati kolom yang diabaikan
+            // KRITIKAL: Lewati kolom yang diabaikan (kecuali no_hp_akun yang ada di tabel pengguna)
             if (in_array($key, $ignoredColumns)) continue;
-            if (!in_array($key, $tableColumns)) continue;
+            if (!in_array($key, $tableColumns) && $key !== 'no_hp_akun') continue;
 
             // Ambil Nilai Baru
             $newVal = ($value === '' || $value === 'null' || is_null($value)) ? '' : trim((string)$value);
 
             // Ambil Nilai Database ASLI
             if ($key === 'alamat_jalan') {
-                // Khusus alamat, bandingkan dengan data di tabel users (pengguna)
                 $dbValRaw = $user->alamat;
+            } elseif ($key === 'no_hp_akun') {
+                $dbValRaw = $user->no_hp;
             } else {
                 $dbValRaw = $siswa->getRawOriginal($key);
             }
