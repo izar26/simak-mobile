@@ -209,6 +209,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
       
       const newPhotoPath = response.data.user?.siswa?.foto;
+
       if (newPhotoPath) {
          setFormData((prev: any) => ({ ...prev, foto: newPhotoPath }));
       }
@@ -219,23 +220,10 @@ const EditProfileScreen = ({ navigation, route }: any) => {
     } finally { setLoading(false); }
   };
 
-  const handleSelectPhoto = async () => {
-    try {
-      const image = await ImageCropPicker.openPicker({ width: 600, height: 800, cropping: true, cropperCircleOverlay: true, mediaType: 'photo', compressImageQuality: 0.8 });
-      if (image.size && image.size > 2 * 1024 * 1024) {
-          setAlertConfig({ visible: true, title: 'Terlalu Besar', message: 'Maksimal 2 MB.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
-          return;
-      }
-      const selectedFile = { uri: image.path, type: image.mime, name: image.path.split('/').pop() || 'profile.jpg', size: image.size };
-      setSelectedPhoto(selectedFile);
-      uploadPhoto(selectedFile);
-    } catch (err) { console.log('Cancelled'); }
-  };
-
   const currentPhotoUrl = selectedPhoto 
     ? selectedPhoto.uri 
     : (formData.foto 
-        ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}?t=${new Date().getTime()}`) 
+        ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}`) 
         : null);
 
   const handleSave = async () => {
@@ -295,7 +283,11 @@ const EditProfileScreen = ({ navigation, route }: any) => {
             <TouchableOpacity onPress={handleSelectPhoto} className="relative active:opacity-90">
                 <View className="w-32 h-32 rounded-full bg-slate-100 border-4 border-white shadow-xl shadow-slate-200 items-center justify-center overflow-hidden">
                     {currentPhotoUrl ? (
-                        <Image source={{ uri: currentPhotoUrl }} className="w-full h-full" resizeMode="cover" />
+                        <Image 
+                          source={{ uri: currentPhotoUrl }} 
+                          className="w-full h-full" 
+                          resizeMode="cover"
+                        />
                     ) : (
                         <User size={48} color="#cbd5e1" />
                     )}

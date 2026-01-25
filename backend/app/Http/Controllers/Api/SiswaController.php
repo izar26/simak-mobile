@@ -101,11 +101,21 @@ class SiswaController extends Controller
         if ($request->hasFile('foto')) {
             $request->validate(['foto' => 'image|mimes:jpeg,png,jpg|max:2048']);
             try {
+                // Hapus foto lama jika ada
                 if ($siswa->foto && Storage::disk('public')->exists($siswa->foto)) {
                     Storage::disk('public')->delete($siswa->foto);
                 }
-                $path = $request->file('foto')->store('siswa/foto', 'public'); // Simpan ke siswa/foto
-                $directChanges['foto'] = $path;
+
+                $file = $request->file('foto');
+                // Generate nama file unik: TIMESTAMP_SLUG-NAMA.EXT
+                $filename = time() . '_' . \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
+                
+                // Simpan dengan nama eksplisit ke folder siswa/foto
+                $path = $file->storeAs('siswa/foto', $filename, 'public');
+                
+                // Paksa path yang tersimpan adalah 'siswa/foto/namafile.jpg'
+                $directChanges['foto'] = $path; 
+
             } catch (\Exception $e) {
                 Log::error('Photo upload failed: ' . $e->getMessage());
             }
