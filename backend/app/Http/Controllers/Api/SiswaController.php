@@ -605,4 +605,48 @@ class SiswaController extends Controller
 
         return $pdf->stream('Biodata_' . $siswa->nama . '.pdf');
     }
+
+    public function getNotifikasi(Request $request)
+    {
+        $user = $request->user();
+        $siswa = $user->siswa;
+
+        if (!$siswa) {
+            return response()->json([]);
+        }
+
+        // Ambil riwayat pengajuan sebagai notifikasi
+        $notifikasi = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
+            ->orderBy('updated_at', 'desc')
+            ->get()
+            ->map(function ($item) {
+                // Format pesan notifikasi
+                $title = 'Pengajuan Perubahan Data';
+                $message = 'Pengajuan Anda sedang diproses.';
+                $type = 'info'; // info, success, error
+
+                if ($item->status === 'disetujui') {
+                    $title = 'Pengajuan Disetujui ✅';
+                    $message = 'Selamat! Perubahan data profil Anda telah disetujui oleh operator.';
+                    $type = 'success';
+                } elseif ($item->status === 'ditolak') {
+                    $title = 'Pengajuan Ditolak ❌';
+                    $message = 'Maaf, pengajuan Anda ditolak. ' . ($item->catatan_operator ? 'Alasan: ' . $item->catatan_operator : 'Silakan hubungi sekolah.');
+                    $type = 'error';
+                }
+
+                return [
+                    'id' => $item->id,
+                    'title' => $title,
+                    'message' => $message,
+                    'status' => $item->status, // pending, disetujui, ditolak
+                    'date' => Carbon::parse($item->updated_at)->diffForHumans(),
+                    'raw_date' => $item->updated_at,
+                    'type' => $type,
+                    'catatan' => $item->catatan_operator
+                ];
+            });
+
+        return response()->json($notifikasi);
+    }
 }

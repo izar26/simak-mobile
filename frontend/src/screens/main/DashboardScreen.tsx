@@ -16,6 +16,7 @@ const DashboardScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
   const [jadwal, setJadwal] = useState<any[]>([]);
   const [attendanceStats, setAttendanceStats] = useState({ Hadir: 0, Sakit: 0, Izin: 0, Alfa: 0 });
+  const [notifCount, setNotifCount] = useState(0); // State Notifikasi
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,6 +51,15 @@ const DashboardScreen = ({ navigation }: any) => {
 
       const absensiRes = await api.get('/siswa/absensi');
       setAttendanceStats(absensiRes.data.stats);
+
+      // Cek Notifikasi
+      try {
+        const notifRes = await api.get('/siswa/notifikasi');
+        // Hitung yang statusnya bukan pending (hasil persetujuan) atau hitung semua
+        // Kita hitung semua saja sebagai notifikasi aktivitas
+        setNotifCount(notifRes.data.length); 
+      } catch (e) { console.log('Gagal load notifikasi'); }
+
     } catch (error) {
       console.log('Gagal ambil data', error);
     } finally {
@@ -174,9 +184,14 @@ const DashboardScreen = ({ navigation }: any) => {
             </Text>
           </View>
         </View>
-        <TouchableOpacity className="bg-white p-3 rounded-full border border-slate-100 shadow-sm relative shrink-0">
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('Notifikasi')}
+          className="bg-white p-3 rounded-full border border-slate-100 shadow-sm relative shrink-0"
+        >
           <Bell size={20} color="#64748b" />
-          <View className="absolute top-3 right-3 w-2 h-2 bg-red-500 rounded-full border border-white" />
+          {notifCount > 0 && (
+            <View className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+          )}
         </TouchableOpacity>
       </View>
 

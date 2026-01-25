@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Bell, CheckCircle, Clock, Calendar } from 'lucide-react-native';
+import { ChevronLeft, Bell, CheckCircle, XCircle, Clock, Info } from 'lucide-react-native';
 import api from '../services/api';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 
 const NotificationScreen = ({ navigation }: any) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -14,114 +16,100 @@ const NotificationScreen = ({ navigation }: any) => {
 
   const fetchNotifications = async () => {
     try {
-      // 1. Ambil Jadwal Hari Ini sebagai basis notifikasi
-      const jadwalRes = await api.get('/siswa/jadwal-hari-ini');
-      const jadwal = jadwalRes.data;
-
-      // 2. Simulasi Riwayat Notifikasi dari Jadwal
-      const generatedNotifs = jadwal.map((item: any) => {
-        const startTime = item.jam.split(' - ')[0];
-        const now = new Date();
-        const [hour, minute] = startTime.split(':').map(Number);
-        
-        const scheduleTime = new Date();
-        scheduleTime.setHours(hour, minute, 0, 0);
-
-        // Status: Apakah notifikasi ini sudah lewat (History) atau akan datang (Upcoming)
-        const isPast = scheduleTime.getTime() <= now.getTime();
-        
-        return {
-          id: Math.random().toString(), // Temp ID
-          title: item.is_non_kbm ? item.mapel : `Pelajaran ${item.mapel}`,
-          body: item.is_non_kbm 
-            ? `Waktunya ${item.mapel}. Selamat beraktivitas!`
-            : `Pelajaran dimulai. Guru: ${item.guru}`,
-          time: startTime,
-          type: item.is_non_kbm ? 'info' : 'class',
-          isRead: isPast, // Jika sudah lewat, anggap sudah "tampil" (read)
-          timestamp: scheduleTime
-        };
-      });
-
-      // Sort: Yang terbaru di atas
-      generatedNotifs.sort((a: any, b: any) => b.timestamp - a.timestamp);
-
-      setNotifications(generatedNotifs);
+      const response = await api.get('/siswa/notifikasi');
+      setNotifications(response.data);
     } catch (error) {
-      console.log('Error fetch notif history', error);
+      console.log('Error fetching notifications:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'success': return { icon: CheckCircle, color: '#10b981', bg: 'bg-emerald-50' };
+      case 'error': return { icon: XCircle, color: '#ef4444', bg: 'bg-red-50' };
+      default: return { icon: Clock, color: '#f59e0b', bg: 'bg-amber-50' };
+    }
+  };
+
+  const renderItem = ({ item, index }: any) => {
+    const theme = getIcon(item.type);
+    const Icon = theme.icon;
+
+    return (
+      <Animated.View 
+        entering={FadeInUp.delay(index * 100).duration(500)}
+        className={`mb-4 p-4 rounded-2xl border ${item.type === 'error' ? 'bg-red-50/30 border-red-100' : 'bg-white border-slate-100'} shadow-sm`}
+      >
+        <View className="flex-row items-start">
+          <View className={`${theme.bg} p-2.5 rounded-full mr-3`}>
+            <Icon size={20} color={theme.color} />
+          </View>
+          <View className="flex-1">
+            <View className="flex-row justify-between items-start">
+               <Text className="text-slate-800 font-bold text-base flex-1 mr-2">{item.title}</Text>
+               <Text className="text-slate-400 text-[10px] mt-1">{item.date}</Text>
+            </View>
+            
+            <Text className="text-slate-600 text-sm mt-1 leading-5">{item.message}</Text>
+            
+            {item.catatan && (
+              <View className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <Text className="text-slate-500 text-xs font-medium italic">
+                  " {item.catatan} "
+                </Text>
+                <Text className="text-slate-400 text-[10px] mt-1 text-right">- Admin Sekolah</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Animated.View>
+    );
   };
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
       {/* Header */}
-      <View className="flex-row items-center px-6 py-4 bg-white border-b border-slate-100 shadow-sm z-10">
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
-          className="w-10 h-10 rounded-full bg-slate-50 items-center justify-center border border-slate-200 mr-4 active:bg-slate-100"
-        >
-          <ChevronLeft size={24} color="#334155" />
+      <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-slate-100 z-10">
+        <TouchableOpacity onPress={() => navigation.goBack()} className="w-10 h-10 rounded-xl bg-slate-50 items-center justify-center border border-slate-100">
+          <ChevronLeft size={24} color="#1e293b" />
         </TouchableOpacity>
-        <Text className="text-xl font-extrabold text-slate-800 tracking-tight">Notifikasi</Text>
+        <Text className="text-lg font-black text-slate-800 tracking-tight">Notifikasi</Text>
+        <View className="w-10" /> 
       </View>
 
-      <ScrollView className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 40 }}>
-        {loading ? (
-          <Text className="text-center text-slate-400 mt-10">Memuat notifikasi...</Text>
-        ) : notifications.length > 0 ? (
-          <>
-            <Text className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-4">Hari Ini</Text>
-            {notifications.map((item, index) => (
-              <View 
-                key={index} 
-                className={`flex-row p-4 mb-3 rounded-2xl border ${
-                  item.isRead ? 'bg-white border-slate-100' : 'bg-blue-50 border-blue-100'
-                }`}
-              >
-                <View className={`w-10 h-10 rounded-full items-center justify-center mr-4 ${
-                  item.type === 'info' ? 'bg-orange-100' : 'bg-blue-100'
-                }`}>
-                  {item.type === 'info' ? (
-                    <Clock size={20} color="#f97316" />
-                  ) : (
-                    <Bell size={20} color="#2563eb" />
-                  )}
-                </View>
-                
-                <View className="flex-1">
-                  <View className="flex-row justify-between items-start mb-1">
-                    <Text className={`font-bold text-base flex-1 mr-2 ${
-                      item.isRead ? 'text-slate-700' : 'text-slate-900'
-                    }`}>
-                      {item.title}
-                    </Text>
-                    <Text className="text-xs text-slate-400 font-medium">{item.time}</Text>
-                  </View>
-                  <Text className="text-slate-500 text-sm leading-5">
-                    {item.body}
-                  </Text>
-                </View>
-
-                {!item.isRead && (
-                  <View className="absolute top-4 right-4 w-2 h-2 bg-red-500 rounded-full" />
-                )}
+      {/* Content */}
+      {loading ? (
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <View className="items-center py-20 px-10">
+              <View className="bg-slate-100 p-6 rounded-full mb-6">
+                 <Bell size={48} color="#cbd5e1" />
               </View>
-            ))}
-          </>
-        ) : (
-          <View className="items-center justify-center mt-20 opacity-50">
-            <View className="w-20 h-20 bg-slate-100 rounded-full items-center justify-center mb-4">
-              <Bell size={40} color="#cbd5e1" />
+              <Text className="text-slate-800 font-bold text-lg mb-2 text-center">Belum Ada Notifikasi</Text>
+              <Text className="text-slate-400 text-center text-sm leading-6">
+                Notifikasi persetujuan atau informasi penting dari sekolah akan muncul di sini.
+              </Text>
             </View>
-            <Text className="text-slate-800 font-bold text-lg">Tidak Ada Notifikasi</Text>
-            <Text className="text-slate-400 text-center px-10 mt-2">
-              Belum ada aktivitas atau pemberitahuan baru untuk hari ini.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };

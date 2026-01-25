@@ -12,6 +12,7 @@ import MainTabNavigator from './src/navigation/MainTabNavigator';
 import EditProfileScreen from './src/screens/main/EditProfileScreen';
 import BerkasScreen from './src/screens/main/BerkasScreen';
 import StudentCardScreen from './src/screens/main/StudentCardScreen';
+import NotificationScreen from './src/screens/NotificationScreen'; // Import baru
 import { getToken } from './src/services/auth';
 
 import { API_URL, MAIN_APP_URL } from '@env';
@@ -169,6 +170,7 @@ function App() {
           <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="BerkasSaya" component={BerkasScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="KartuPelajar" component={StudentCardScreen} options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="Notifikasi" component={NotificationScreen} options={{ animation: 'slide_from_right' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

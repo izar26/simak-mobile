@@ -16,6 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/siswa/jadwal-hari-ini', [SiswaController::class, 'getJadwalHariIni']);
     Route::get('/siswa/jadwal-mingguan', [SiswaController::class, 'getJadwalMingguan']);
     Route::get('/siswa/absensi', [SiswaController::class, 'getRekapAbsensi']);
+    Route::get('/siswa/notifikasi', [SiswaController::class, 'getNotifikasi']); // Notifikasi Pengajuan
     Route::post('/siswa/update', [SiswaController::class, 'update']);
     Route::post('/siswa/upload-berkas', [SiswaController::class, 'uploadBerkas']);
     Route::post('/siswa/hapus-berkas', [SiswaController::class, 'hapusBerkas']);

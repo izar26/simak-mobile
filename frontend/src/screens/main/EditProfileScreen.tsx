@@ -290,9 +290,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   const [formData, setFormData] = useState<any>({
     ...(user?.siswa || {}),
     alamat_jalan: user?.alamat || user?.siswa?.alamat_jalan || '',
-    email_akun: user?.username || '-',
-    nomor_telepon_rumah: user?.siswa?.nomor_telepon_rumah || user?.no_telepon || '-',
-    no_hp_akun: user?.no_hp || '-',
+    email_akun: user?.username || '',
+    nomor_telepon_rumah: user?.siswa?.nomor_telepon_rumah || user?.no_telepon || '',
+    no_hp_akun: user?.no_hp || '',
   });
   const [loading, setLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
@@ -347,13 +347,17 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   };
 
   const handleSave = async () => {
+    console.log('handleSave called'); // DEBUG
     setLoading(true);
     try {
       const data = new FormData();
       Object.keys(formData).forEach(key => {
         if (key !== 'foto' && key !== 'berkas' && formData[key] !== null) data.append(key, String(formData[key]));
       });
+      
+      console.log('Sending update request...'); // DEBUG
       const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+      console.log('Update success:', response.data); // DEBUG
       
       let message = 'Perubahan data berhasil disimpan.';
       if (response.data.pending_request && Object.keys(response.data.pending_request).length > 0) {
@@ -361,6 +365,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       }
       setAlertConfig({ visible: true, title: 'Berhasil Disimpan!', message: message, type: 'success', onClose: () => { setAlertConfig(prev => ({...prev, visible: false})); navigation.goBack(); } });
     } catch (error: any) {
+      console.error('Update failed:', error); // DEBUG
       setAlertConfig({ visible: true, title: 'Gagal Menyimpan', message: 'Terjadi kesalahan jaringan.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
     } finally { setLoading(false); }
   };
