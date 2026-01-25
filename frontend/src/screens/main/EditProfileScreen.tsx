@@ -20,7 +20,7 @@ const lockedColumns = [
   'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
   'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
   'alamat_jalan', 
-  'no_hp_akun', 'nomor_telepon_rumah',
+  'no_hp_akun', 'nomor_telepon_rumah', 'no_wa',
   'nik' 
 ];
 
@@ -162,6 +162,7 @@ const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
   const [show, setShow] = useState(false);
   const isLocked = lockedColumns.includes(fieldKey);
 
+  // Parse existing date or default
   const dateValue = value ? new Date(value) : new Date();
 
   const handleChange = (event: any, selectedDate?: Date) => {
@@ -347,17 +348,13 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   };
 
   const handleSave = async () => {
-    console.log('handleSave called'); // DEBUG
     setLoading(true);
     try {
       const data = new FormData();
       Object.keys(formData).forEach(key => {
         if (key !== 'foto' && key !== 'berkas' && formData[key] !== null) data.append(key, String(formData[key]));
       });
-      
-      console.log('Sending update request...'); // DEBUG
       const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
-      console.log('Update success:', response.data); // DEBUG
       
       let message = 'Perubahan data berhasil disimpan.';
       if (response.data.pending_request && Object.keys(response.data.pending_request).length > 0) {
@@ -365,7 +362,6 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       }
       setAlertConfig({ visible: true, title: 'Berhasil Disimpan!', message: message, type: 'success', onClose: () => { setAlertConfig(prev => ({...prev, visible: false})); navigation.goBack(); } });
     } catch (error: any) {
-      console.error('Update failed:', error); // DEBUG
       setAlertConfig({ visible: true, title: 'Gagal Menyimpan', message: 'Terjadi kesalahan jaringan.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
     } finally { setLoading(false); }
   };
@@ -413,7 +409,11 @@ const EditProfileScreen = ({ navigation, route }: any) => {
             <TouchableOpacity onPress={handleSelectPhoto} className="relative active:opacity-90">
                 <View className="w-32 h-32 rounded-full bg-slate-100 border-4 border-white shadow-xl shadow-slate-200 items-center justify-center overflow-hidden">
                     {currentPhotoUrl ? (
-                        <Image source={{ uri: currentPhotoUrl }} className="w-full h-full" resizeMode="cover" />
+                        <Image 
+                          source={{ uri: currentPhotoUrl }}
+                          className="w-full h-full"
+                          resizeMode="cover"
+                        />
                     ) : (
                         <User size={48} color="#cbd5e1" />
                     )}

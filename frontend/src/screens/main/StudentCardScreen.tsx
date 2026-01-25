@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, Platform, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import QRCode from 'react-native-qrcode-svg';
@@ -18,12 +18,15 @@ const StudentCardScreen = ({ navigation, route }: any) => {
   const viewShotRef = useRef<any>(null);
   const [loading, setLoading] = useState(false);
 
-  // Cache Buster untuk memaksa refresh gambar
-  const timeStamp = new Date().getTime();
+  const getFullUrl = (path: string) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    return `${MAIN_APP_URL}/storage/${path}`;
+  };
 
-  const fotoUrl = siswa?.foto ? `${MAIN_APP_URL}/storage/${siswa.foto}?t=${timeStamp}` : null;
-  const logoUrl = sekolah?.logo ? `${MAIN_APP_URL}/storage/${sekolah.logo}?t=${timeStamp}` : null;
-  const bgUrl = sekolah?.background_kartu_siswa ? `${MAIN_APP_URL}/storage/${sekolah.background_kartu_siswa}?t=${timeStamp}` : null;
+  const fotoUrl = getFullUrl(siswa?.foto);
+  const logoUrl = getFullUrl(sekolah?.logo);
+  const bgUrl = getFullUrl(sekolah?.background_kartu_siswa);
 
   console.log('DEBUG KARTU PELAJAR:', { fotoUrl, logoUrl, bgUrl });
 
@@ -37,25 +40,19 @@ const StudentCardScreen = ({ navigation, route }: any) => {
       const path = `${dirs.DownloadDir}/${fileName}`;
 
       if (Platform.OS === 'android') {
-        ReactNativeBlobUtil.config({
-          fileCache: true,
-          addAndroidDownloads: {
-            useDownloadManager: true,
-            notification: true,
-            path: path,
-            description: 'Downloading Student Card...',
-            mediaScannable: true,
-            title: fileName,
-            mime: 'image/png',
-          },
-        })
-          .fetch('GET', uri)
-          .then((res) => {
-            Alert.alert('Berhasil', `Kartu tersimpan di Galeri/Download.`);
+        // Karena file sudah di lokal (hasil screenshot), kita cukup COPY ke folder Download
+        ReactNativeBlobUtil.fs.cp(uri, path)
+          .then(() => {
+            // Scan agar muncul di Galeri
+            ReactNativeBlobUtil.fs.scanFile([{ path: path, mime: 'image/png' }])
+              .then(() => console.log('File scanned'))
+              .catch(err => console.log('Scan error', err));
+
+            Alert.alert('Berhasil', `Kartu tersimpan di Folder Download.\n(${fileName})`);
           })
           .catch((err) => {
-            console.error(err);
-            Alert.alert('Gagal', 'Gagal menyimpan kartu.');
+            console.error('Copy Error:', err);
+            Alert.alert('Gagal', 'Gagal menyimpan kartu ke folder publik.');
           });
       } else {
         // iOS handling (usually Share)

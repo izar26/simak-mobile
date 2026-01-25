@@ -339,7 +339,57 @@ class SiswaController extends Controller
             ];
         });
 
-        return response()->json($formattedJadwal);
+        // 1. Ambil Hari Libur (Masa Depan)
+        $libur = DB::table('hari_libur')
+            ->where('tanggal_selesai', '>=', Carbon::now()->format('Y-m-d'))
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'libur',
+                    'title' => $item->keterangan,
+                    'date' => $item->tanggal_mulai,
+                    'desc' => 'Kegiatan sekolah ditiadakan.'
+                ];
+            });
+
+        // 2. Ambil Pengumuman Sekolah (Aktif)
+        $info = DB::table('pengumuman')
+            ->where('is_active', 1)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'info',
+                    'title' => $item->judul,
+                    'date' => $item->tgl_terbit,
+                    'desc' => strip_tags($item->isi)
+                ];
+            });
+
+        // 3. Ambil Berita Terbaru (Published)
+        $berita = DB::table('beritas')
+            ->where('status', 'published') // Asumsi status 'published'
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'berita',
+                    'title' => $item->judul,
+                    'date' => $item->created_at,
+                    'desc' => $item->ringkasan
+                ];
+            });
+
+        // 4. Gabung & Urutkan
+        $pengumuman = $libur->merge($info)->merge($berita)
+            ->sortByDesc('date')
+            ->values()
+            ->take(10);
+
+        return response()->json([
+            'jadwal' => $formattedJadwal,
+            'pengumuman' => $pengumuman
+        ]);
     }
 
     public function getJadwalMingguan(Request $request)

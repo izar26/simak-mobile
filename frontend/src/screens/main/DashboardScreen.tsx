@@ -5,16 +5,19 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MAIN_APP_URL } from '@env';
 import api from '../../services/api';
 import {
-  Bell, Calendar, CheckCircle, Clock, BookOpen, ChevronRight, User, FileText, CreditCard, XCircle, Thermometer
+  Bell, Calendar, CheckCircle, Clock, BookOpen, ChevronRight, User, FileText, CreditCard, XCircle, Thermometer, Globe, Link as LinkIcon, UserPlus
 } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Skeleton from '../../components/Skeleton';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
 const DashboardScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
   const [jadwal, setJadwal] = useState<any[]>([]);
+  const [pengumuman, setPengumuman] = useState<any[]>([]); // Data Pengumuman Real
   const [attendanceStats, setAttendanceStats] = useState({ Hadir: 0, Sakit: 0, Izin: 0, Alfa: 0 });
   const [notifCount, setNotifCount] = useState(0); // State Notifikasi
   const [loading, setLoading] = useState(true);
@@ -36,18 +39,20 @@ const DashboardScreen = ({ navigation }: any) => {
     { label: 'Alfa', value: attendanceStats.Alfa, icon: XCircle, color: 'bg-red-100', iconColor: '#dc2626' }, 
   ];
 
-  const pengumuman = [
-    { title: 'Libur Nasional', date: '17 Agt 2024', desc: 'Sekolah libur memperingati hari kemerdekaan.' },
-    { title: 'Ujian Tengah Semester', date: '20 Sep 2024', desc: 'Persiapkan diri untuk UTS semester ganjil.' },
-  ];
-
   const fetchData = async () => {
     try {
       const response = await api.get('/me');
       setUser(response.data);
       
       const jadwalRes = await api.get('/siswa/jadwal-hari-ini');
-      setJadwal(jadwalRes.data);
+      // Handle new response structure
+      if (jadwalRes.data.jadwal) {
+         setJadwal(jadwalRes.data.jadwal);
+         setPengumuman(jadwalRes.data.pengumuman || []);
+      } else {
+         // Fallback legacy structure support just in case
+         setJadwal(Array.isArray(jadwalRes.data) ? jadwalRes.data : []);
+      }
 
       const absensiRes = await api.get('/siswa/absensi');
       setAttendanceStats(absensiRes.data.stats);
@@ -55,9 +60,14 @@ const DashboardScreen = ({ navigation }: any) => {
       // Cek Notifikasi
       try {
         const notifRes = await api.get('/siswa/notifikasi');
-        // Hitung yang statusnya bukan pending (hasil persetujuan) atau hitung semua
-        // Kita hitung semua saja sebagai notifikasi aktivitas
-        setNotifCount(notifRes.data.length); 
+        const totalServer = notifRes.data.length;
+        
+        // Cek terakhir dilihat local
+        const lastSeen = await AsyncStorage.getItem('last_seen_notif_count');
+        const lastCount = lastSeen ? parseInt(lastSeen) : 0;
+        
+        const unread = totalServer - lastCount;
+        setNotifCount(unread > 0 ? unread : 0);
       } catch (e) { console.log('Gagal load notifikasi'); }
 
     } catch (error) {
@@ -190,7 +200,9 @@ const DashboardScreen = ({ navigation }: any) => {
         >
           <Bell size={20} color="#64748b" />
           {notifCount > 0 && (
-            <View className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+            <View className="absolute top-2 right-2 bg-red-500 rounded-full min-w-[16px] h-4 px-1 items-center justify-center border border-white">
+               <Text className="text-white text-[9px] font-bold">{notifCount > 9 ? '9+' : notifCount}</Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -232,23 +244,29 @@ const DashboardScreen = ({ navigation }: any) => {
         {/* Menu Cepat (Quick Access) */}
         <View className="px-6 mb-8">
           <Text className="text-slate-800 font-bold text-lg mb-4">Akses Cepat</Text>
-          <View className="flex-row justify-between flex-wrap">
+          <View className="flex-row flex-wrap justify-between gap-y-6">
             {[
               { label: 'Profil', icon: User, color: '#2563eb', bg: 'bg-blue-50', border: 'border-blue-100', nav: 'Profil' },
               { label: 'Jadwal', icon: Calendar, color: '#f59e0b', bg: 'bg-amber-50', border: 'border-amber-100', nav: 'Jadwal' },
               { label: 'Dokumen', icon: FileText, color: '#16a34a', bg: 'bg-green-50', border: 'border-green-100', nav: 'BerkasSaya' },
               { label: 'Kartu', icon: CreditCard, color: '#dc2626', bg: 'bg-red-50', border: 'border-red-100', nav: 'KartuPelajar' },
+              { label: 'Website', icon: Globe, color: '#0ea5e9', bg: 'bg-sky-50', border: 'border-sky-100', link: user?.siswa?.sekolah?.website },
+              { label: 'SPMB', icon: UserPlus, color: '#8b5cf6', bg: 'bg-violet-50', border: 'border-violet-100', link: user?.siswa?.sekolah?.spmb },
             ].map((menu, i) => (
               <TouchableOpacity 
                 key={i}
                 onPress={() => {
-                    if (menu.nav === 'Profil' || menu.nav === 'Jadwal') navigation.navigate(menu.nav);
-                    else navigation.navigate(menu.nav, { user });
+                    if (menu.link) {
+                       Linking.openURL(menu.link).catch(err => console.error("Couldn't load page", err));
+                    } else if (menu.nav) {
+                       if (menu.nav === 'Jadwal' || menu.nav === 'Profil') navigation.navigate(menu.nav);
+                       else navigation.navigate(menu.nav, { user });
+                    }
                 }}
-                className="w-[23%] items-center gap-2"
+                className="w-[30%] items-center gap-2"
               >
-                <View className={`${menu.bg} w-16 h-16 rounded-[20px] items-center justify-center border ${menu.border} shadow-sm`}>
-                  <menu.icon size={26} color={menu.color} strokeWidth={2} />
+                <View className={`${menu.bg} w-16 h-16 rounded-[24px] items-center justify-center border ${menu.border} shadow-sm`}>
+                  <menu.icon size={24} color={menu.color} strokeWidth={2} />
                 </View>
                 <Text className="text-slate-600 text-xs font-semibold text-center">{menu.label}</Text>
               </TouchableOpacity>
@@ -308,21 +326,48 @@ const DashboardScreen = ({ navigation }: any) => {
 
         {/* Pengumuman Terbaru */}
         <View className="pl-6 mb-4">
-          <Text className="text-slate-800 font-bold text-lg mb-4">Papan Pengumuman</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pr-6" contentContainerStyle={{ paddingRight: 24 }}>
-            {pengumuman.map((item, i) => (
-              <View key={i} className="w-80 bg-white border border-slate-100 shadow-sm p-5 rounded-3xl mr-4">
-                <View className="flex-row justify-between items-start mb-3">
-                  <View className="bg-orange-100 px-3 py-1 rounded-full border border-orange-50">
-                    <Text className="text-orange-700 text-[10px] font-bold">PENTING</Text>
+          <View className="flex-row justify-between items-center mb-4 pr-6">
+            <Text className="text-slate-800 font-bold text-lg">Papan Pengumuman</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Pengumuman')}>
+              <Text className="text-blue-600 text-xs font-bold">Lihat Semua</Text>
+            </TouchableOpacity>
+          </View>
+          {pengumuman.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pr-6" contentContainerStyle={{ paddingRight: 24 }}>
+              {pengumuman.map((item, i) => (
+                <View key={i} className="w-72 bg-white border border-slate-100 shadow-sm p-5 rounded-3xl mr-4">
+                  <View className="flex-row justify-between items-start mb-3">
+                    <View className={`px-3 py-1 rounded-full border ${
+                      item.type === 'libur' ? 'bg-red-50 border-red-100' : 
+                      item.type === 'berita' ? 'bg-emerald-50 border-emerald-100' :
+                      'bg-blue-50 border-blue-100'
+                    }`}>
+                      <Text className={`text-[10px] font-bold uppercase ${
+                        item.type === 'libur' ? 'text-red-600' : 
+                        item.type === 'berita' ? 'text-emerald-600' :
+                        'text-blue-600'
+                      }`}>
+                        {item.type === 'libur' ? 'LIBUR' : item.type === 'berita' ? 'BERITA' : 'INFO'}
+                      </Text>
+                    </View>
+                    <Text className="text-slate-400 text-xs font-medium">
+                      {new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </Text>
                   </View>
-                  <Text className="text-slate-400 text-xs font-medium">{item.date}</Text>
+                  <Text className="text-slate-800 font-bold text-base mb-1 leading-6 line-clamp-2" numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Text className="text-slate-400 text-xs mt-1 leading-4" numberOfLines={2}>
+                    {item.desc || 'Klik untuk detail'}
+                  </Text>
                 </View>
-                <Text className="text-slate-800 font-bold text-lg mb-2 leading-6">{item.title}</Text>
-                <Text className="text-slate-500 text-sm leading-5" numberOfLines={3}>{item.desc}</Text>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          ) : (
+            <View className="mr-6 bg-slate-50 border border-slate-100 rounded-3xl p-6 items-center">
+               <Text className="text-slate-400 font-medium text-sm">Tidak ada pengumuman hari libur.</Text>
+            </View>
+          )}
         </View>
 
       </Animated.ScrollView>
