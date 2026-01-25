@@ -104,7 +104,7 @@ class SiswaController extends Controller
                 if ($siswa->foto && Storage::disk('public')->exists($siswa->foto)) {
                     Storage::disk('public')->delete($siswa->foto);
                 }
-                $path = $request->file('foto')->store('foto_profil', 'public');
+                $path = $request->file('foto')->store('siswa/foto', 'public'); // Simpan ke siswa/foto
                 $directChanges['foto'] = $path;
             } catch (\Exception $e) {
                 Log::error('Photo upload failed: ' . $e->getMessage());

@@ -235,7 +235,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   const currentPhotoUrl = selectedPhoto 
     ? selectedPhoto.uri 
     : (formData.foto 
-        ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}`) 
+        ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}?t=${new Date().getTime()}`) 
         : null);
 
   const handleSave = async () => {
