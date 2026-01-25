@@ -35,7 +35,7 @@ class AuthController extends Controller
              $sekolah = DB::table('sekolahs')->first();
              // Fetch data tapel aktif
              $tapel = DB::table('tapel')->where('is_active', 1)->first();
-             
+
              $user->siswa->sekolah = $sekolah;
              $user->siswa->tapel_aktif = $tapel;
         }
@@ -60,13 +60,13 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user()->load('siswa.berkas');
-        
+
         // Fetch data sekolah manual karena tidak ada Model Sekolah
         $sekolah = DB::table('sekolahs')->first();
-        
+
         // Fetch data tapel aktif
         $tapel = DB::table('tapel')->where('is_active', 1)->first();
-        
+
         // Inject data ke dalam object user agar frontend mudah mengaksesnya
         if ($user->siswa) {
             $user->siswa->sekolah = $sekolah;

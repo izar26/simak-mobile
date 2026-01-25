@@ -24,4 +24,15 @@ class PublicController extends Controller
             'website' => $sekolah->website,
         ]);
     }
+
+    public function getBerita()
+    {
+        $berita = DB::table('beritas')
+            ->where('status', 'published')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json($berita);
+    }
 }

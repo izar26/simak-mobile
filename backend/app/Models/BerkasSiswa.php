@@ -9,6 +9,16 @@ class BerkasSiswa extends Model
 {
     use HasFactory;
 
-    protected $table = 'berkas_siswas';
-    protected $guarded = [];
+    protected $fillable = [
+        'siswa_id',
+        'judul',
+        'file_path',
+        'file_type',
+    ];
+
+    // Relasi balik ke Siswa
+    public function siswa()
+    {
+        return $this->belongsTo(Siswa::class);
+    }
 }

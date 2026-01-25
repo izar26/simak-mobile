@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\SiswaController;
 
 Route::get('/sekolah', [PublicController::class, 'getSekolah']);
+Route::get('/berita', [PublicController::class, 'getBerita']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -18,4 +19,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/siswa/update', [SiswaController::class, 'update']);
     Route::post('/siswa/upload-berkas', [SiswaController::class, 'uploadBerkas']);
     Route::post('/siswa/hapus-berkas', [SiswaController::class, 'hapusBerkas']);
+    Route::get('/siswa/cetak-biodata', [SiswaController::class, 'cetakBiodata']);
 });
