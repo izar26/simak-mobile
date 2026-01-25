@@ -7,6 +7,7 @@ import ImageCropPicker from 'react-native-image-crop-picker';
 import { MAIN_APP_URL } from '@env';
 import api from '../../services/api';
 import Skeleton from '../../components/Skeleton';
+import StatusModal from '../../components/StatusModal';
 
 const lockedColumns = [
   'nama', 'nipd', 'nisn', 'nik', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir',
@@ -156,24 +157,6 @@ const FormSection = ({ title, icon: Icon, children }: any) => (
   </View>
 );
 
-const CustomAlert = ({ visible, title, message, type = 'success', onClose }: any) => {
-  if (!visible) return null;
-  return (
-    <View className="absolute top-0 bottom-0 left-0 right-0 bg-black/60 z-50 justify-center items-center px-6" style={{ elevation: 10 }}>
-      <View className="bg-white w-full rounded-[32px] p-8 items-center shadow-2xl">
-        <View className={`w-20 h-20 rounded-full items-center justify-center mb-6 ${type === 'success' ? 'bg-green-50' : 'bg-red-50'}`}>
-          {type === 'success' ? <CheckCircle size={40} color="#16a34a" /> : <XCircle size={40} color="#dc2626" />}
-        </View>
-        <Text className="text-2xl font-black text-slate-800 mb-2 text-center tracking-tight">{title}</Text>
-        <Text className="text-slate-500 text-center mb-8 leading-6 text-base px-2">{message}</Text>
-        <TouchableOpacity onPress={onClose} className={`w-full py-4 rounded-2xl shadow-lg ${type === 'success' ? 'bg-green-600 shadow-green-200' : 'bg-red-600 shadow-red-200'}`}>
-          <Text className="text-white text-center font-bold text-lg">{type === 'success' ? 'Selesai' : 'Tutup'}</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
 const EditProfileScreen = ({ navigation, route }: any) => {
   const { user } = route.params;
   const [formData, setFormData] = useState<any>({
@@ -190,41 +173,106 @@ const EditProfileScreen = ({ navigation, route }: any) => {
     visible: false, title: '', message: '', type: 'success', onClose: () => {}
   });
 
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => { setIsReady(true); });
-    return () => task.cancel();
-  }, []);
-
-  const handleChange = (key: string, value: string) => setFormData((prev: any) => ({ ...prev, [key]: value }));
-
-  const uploadPhoto = async (file: any) => {
-    setLoading(true);
-    try {
-      const data = new FormData();
-      data.append('foto', { uri: file.uri, type: file.type, name: file.name } as any);
+        const [isReady, setIsReady] = useState(false);
+        const [activeTab, setActiveTab] = useState('Pribadi');
+        const [photoVersion, setPhotoVersion] = useState(0); // Cache buster state
       
-      console.log('Uploading photo...');
-      const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
-      
-      const newPhotoPath = response.data.user?.siswa?.foto;
+        const tabs = [        { id: 'Pribadi', label: 'Data Diri', icon: User },
+        { id: 'Alamat', label: 'Domisili', icon: MapPin },
+        { id: 'Keluarga', label: 'Keluarga', icon: Users },
+        { id: 'Lainnya', label: 'Lainnya', icon: BookOpen },
+      ];
+    
+      useEffect(() => {
+      const task = InteractionManager.runAfterInteractions(() => { setIsReady(true); });
 
-      if (newPhotoPath) {
-         setFormData((prev: any) => ({ ...prev, foto: newPhotoPath }));
-      }
-      
-      setAlertConfig({ visible: true, title: 'Foto Berhasil!', message: 'Foto profil Anda telah diperbarui.', type: 'success', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
-    } catch (error: any) {
-      setAlertConfig({ visible: true, title: 'Gagal Upload', message: error.message, type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
-    } finally { setLoading(false); }
-  };
+      return () => task.cancel();
 
-  const currentPhotoUrl = selectedPhoto 
-    ? selectedPhoto.uri 
-    : (formData.foto 
-        ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}`) 
-        : null);
+    }, []);
+
+  
+
+    const handleChange = (key: string, value: string) => setFormData((prev: any) => ({ ...prev, [key]: value }));
+
+  
+
+    const uploadPhoto = async (file: any) => {
+
+      setLoading(true);
+
+      try {
+
+        const data = new FormData();
+
+        data.append('foto', { uri: file.uri, type: file.type, name: file.name } as any);
+
+        
+
+        console.log('Uploading photo...');
+
+        const response = await api.post('/siswa/update', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+
+        
+
+        const newPhotoPath = response.data.user?.siswa?.foto;
+
+        if (newPhotoPath) {
+
+           setFormData((prev: any) => ({ ...prev, foto: newPhotoPath }));
+
+           setPhotoVersion(v => v + 1); // Force image refresh
+
+        }
+
+        
+
+        setAlertConfig({ visible: true, title: 'Foto Berhasil!', message: 'Foto profil Anda telah diperbarui.', type: 'success', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
+
+      } catch (error: any) {
+
+        setAlertConfig({ visible: true, title: 'Gagal Upload', message: error.message, type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
+
+      } finally { setLoading(false); }
+
+    };
+
+  
+
+    const handleSelectPhoto = async () => {
+
+      try {
+
+        const image = await ImageCropPicker.openPicker({ width: 600, height: 800, cropping: true, cropperCircleOverlay: true, mediaType: 'photo', compressImageQuality: 0.8 });
+
+        if (image.size && image.size > 2 * 1024 * 1024) {
+
+            setAlertConfig({ visible: true, title: 'Terlalu Besar', message: 'Maksimal 2 MB.', type: 'error', onClose: () => setAlertConfig(prev => ({...prev, visible: false})) });
+
+            return;
+
+        }
+
+        const selectedFile = { uri: image.path, type: image.mime, name: image.path.split('/').pop() || 'profile.jpg', size: image.size };
+
+        setSelectedPhoto(selectedFile);
+
+        uploadPhoto(selectedFile);
+
+      } catch (err) { console.log('Cancelled'); }
+
+    };
+
+  
+
+    const currentPhotoUrl = selectedPhoto 
+
+      ? selectedPhoto.uri 
+
+      : (formData.foto 
+
+          ? (formData.foto.startsWith('http') ? formData.foto : `${MAIN_APP_URL}/storage/${formData.foto}?v=${photoVersion}`) 
+
+          : null);
 
   const handleSave = async () => {
     setLoading(true);
@@ -300,105 +348,133 @@ const EditProfileScreen = ({ navigation, route }: any) => {
           </View>
 
           {/* Info Banner */}
-          <View className="px-6 mb-8">
-             <View className="p-5 bg-blue-600 rounded-[28px] shadow-lg shadow-blue-200 flex-row items-start border border-blue-500">
-                <View className="bg-blue-500/50 p-2 rounded-xl mr-3">
-                   <Info size={20} color="white" />
-                </View>
-                <View className="flex-1">
-                    <Text className="text-white font-bold text-base mb-1">Informasi Data</Text>
-                    <Text className="text-blue-50 text-xs leading-5">
-                    Data dengan tanda <Text className="font-bold text-amber-300">VERIFIKASI</Text> memerlukan persetujuan sekolah sebelum berubah.
-                    </Text>
-                </View>
+          <View className="px-6 mb-6">
+             <View className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex-row items-center">
+                <Info size={18} color="#2563eb" />
+                <Text className="text-blue-700 text-xs ml-3 font-medium flex-1">
+                  Data dengan tanda <Text className="font-bold text-amber-600">Gembok</Text> perlu verifikasi admin.
+                </Text>
              </View>
           </View>
 
+          {/* TAB NAVIGATION */}
+          <View className="px-6 mb-6 h-12">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 24 }}>
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <TouchableOpacity
+                    key={tab.id}
+                    onPress={() => setActiveTab(tab.id)}
+                    className={`flex-row items-center px-5 py-3 rounded-full border shadow-sm ${isActive ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-200'}`}
+                  >
+                    <Icon size={16} color={isActive ? 'white' : '#64748b'} />
+                    <Text className={`ml-2 text-xs font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-slate-500'}`}>{tab.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
           <View className="px-6 pb-32">
-            <FormSection title="Biodata Diri" icon={User}>
-              <InputField label="Nama Lengkap" fieldKey="nama" icon={User} value={formData.nama} onChangeText={handleChange} />
-              <InputField label="NIPD" fieldKey="nipd" icon={Info} keyboardType="numeric" value={formData.nipd} onChangeText={handleChange} />
-              <InputField label="NIK" fieldKey="nik" icon={Info} keyboardType="numeric" value={formData.nik} onChangeText={handleChange} />
-              <InputField label="Nomor KK" fieldKey="no_kk" icon={FileText} keyboardType="numeric" value={formData.no_kk} onChangeText={handleChange} />
-              <View className="flex-row gap-4">
-                <View className="flex-1"><InputField label="Tempat Lahir" fieldKey="tempat_lahir" icon={MapPin} value={formData.tempat_lahir} onChangeText={handleChange} /></View>
-                <View className="flex-1"><InputField label="Tgl Lahir" fieldKey="tanggal_lahir" icon={AlertCircle} placeholder="YYYY-MM-DD" value={formData.tanggal_lahir} onChangeText={handleChange} /></View>
-              </View>
-              <InputField label="Berkebutuhan Khusus" fieldKey="kebutuhan_khusus" icon={Info} value={formData.kebutuhan_khusus} onChangeText={handleChange} />
-              
-              {/* Read Only Account Info */}
-              <View className="bg-slate-50 p-5 rounded-3xl mb-6 border border-slate-100">
-                 <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">Akun Terdaftar</Text>
-                 <View className="gap-4">
-                    <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">Username/Email</Text><Text className="font-bold text-slate-700 text-sm">{formData.email_akun}</Text></View>
-                    <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">Telp Rumah</Text><Text className="font-bold text-slate-700 text-sm">{formData.nomor_telepon_rumah}</Text></View>
-                    <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">HP Akun</Text><Text className="font-bold text-slate-700 text-sm">{formData.no_hp_akun}</Text></View>
-                 </View>
-              </View>
+            
+            {activeTab === 'Pribadi' && (
+              <FormSection title="Biodata Diri" icon={User}>
+                <InputField label="Nama Lengkap" fieldKey="nama" icon={User} value={formData.nama} onChangeText={handleChange} />
+                <InputField label="NIPD" fieldKey="nipd" icon={Info} keyboardType="numeric" value={formData.nipd} onChangeText={handleChange} />
+                <InputField label="NIK" fieldKey="nik" icon={Info} keyboardType="numeric" value={formData.nik} onChangeText={handleChange} />
+                <InputField label="Nomor KK" fieldKey="no_kk" icon={FileText} keyboardType="numeric" value={formData.no_kk} onChangeText={handleChange} />
+                <View className="flex-row gap-4">
+                  <View className="flex-1"><InputField label="Tempat Lahir" fieldKey="tempat_lahir" icon={MapPin} value={formData.tempat_lahir} onChangeText={handleChange} /></View>
+                  <View className="flex-1"><InputField label="Tgl Lahir" fieldKey="tanggal_lahir" icon={AlertCircle} placeholder="YYYY-MM-DD" value={formData.tanggal_lahir} onChangeText={handleChange} /></View>
+                </View>
+                <InputField label="Berkebutuhan Khusus" fieldKey="kebutuhan_khusus" icon={Info} value={formData.kebutuhan_khusus} onChangeText={handleChange} />
+                
+                {/* Read Only Account Info */}
+                <View className="bg-slate-50 p-5 rounded-3xl mb-6 border border-slate-100">
+                   <Text className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">Akun Terdaftar</Text>
+                   <View className="gap-4">
+                      <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">Username/Email</Text><Text className="font-bold text-slate-700 text-sm">{formData.email_akun}</Text></View>
+                      <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">Telp Rumah</Text><Text className="font-bold text-slate-700 text-sm">{formData.nomor_telepon_rumah}</Text></View>
+                      <View className="flex-row justify-between"><Text className="text-slate-500 text-xs font-medium">HP Akun</Text><Text className="font-bold text-slate-700 text-sm">{formData.no_hp_akun}</Text></View>
+                   </View>
+                </View>
 
-              <InputField label="WhatsApp Siswa" fieldKey="no_wa" icon={Phone} keyboardType="phone-pad" value={formData.no_wa} onChangeText={handleChange} />
-              <View className="flex-row gap-4">
-                <View className="flex-1"><InputField label="Tinggi (cm)" fieldKey="tinggi_badan" icon={Info} keyboardType="numeric" value={formData.tinggi_badan} onChangeText={handleChange} /></View>
-                <View className="flex-1"><InputField label="Berat (kg)" fieldKey="berat_badan" icon={Info} keyboardType="numeric" value={formData.berat_badan} onChangeText={handleChange} /></View>
-              </View>
-            </FormSection>
+                <InputField label="WhatsApp Siswa" fieldKey="no_wa" icon={Phone} keyboardType="phone-pad" value={formData.no_wa} onChangeText={handleChange} />
+                <View className="flex-row gap-4">
+                  <View className="flex-1"><InputField label="Tinggi (cm)" fieldKey="tinggi_badan" icon={Info} keyboardType="numeric" value={formData.tinggi_badan} onChangeText={handleChange} /></View>
+                  <View className="flex-1"><InputField label="Berat (kg)" fieldKey="berat_badan" icon={Info} keyboardType="numeric" value={formData.berat_badan} onChangeText={handleChange} /></View>
+                </View>
+              </FormSection>
+            )}
 
-            <FormSection title="Alamat Domisili" icon={MapPin}>
-              <InputField label="Alamat Jalan" fieldKey="alamat_jalan" icon={MapPin} value={formData.alamat_jalan} onChangeText={handleChange} />
-              <View className="flex-row gap-4">
-                <View className="flex-1"><InputField label="RT" fieldKey="rt" icon={MapPin} keyboardType="numeric" value={formData.rt} onChangeText={handleChange} /></View>
-                <View className="flex-1"><InputField label="RW" fieldKey="rw" icon={MapPin} keyboardType="numeric" value={formData.rw} onChangeText={handleChange} /></View>
-              </View>
-              <InputField label="Desa / Kelurahan" fieldKey="desa_kelurahan" icon={MapPin} value={formData.desa_kelurahan} onChangeText={handleChange} />
-              <InputField label="Kecamatan" fieldKey="kecamatan" icon={MapPin} value={formData.kecamatan} onChangeText={handleChange} />
-              <InputField label="Kabupaten / Kota" fieldKey="kabupaten_kota" icon={MapPin} value={formData.kabupaten_kota} onChangeText={handleChange} />
-              <InputField label="Kode Pos" fieldKey="kode_pos" icon={MapPin} keyboardType="numeric" value={formData.kode_pos} onChangeText={handleChange} />
-            </FormSection>
+            {activeTab === 'Alamat' && (
+              <FormSection title="Alamat Domisili" icon={MapPin}>
+                <InputField label="Alamat Jalan" fieldKey="alamat_jalan" icon={MapPin} value={formData.alamat_jalan} onChangeText={handleChange} />
+                <View className="flex-row gap-4">
+                  <View className="flex-1"><InputField label="RT" fieldKey="rt" icon={MapPin} keyboardType="numeric" value={formData.rt} onChangeText={handleChange} /></View>
+                  <View className="flex-1"><InputField label="RW" fieldKey="rw" icon={MapPin} keyboardType="numeric" value={formData.rw} onChangeText={handleChange} /></View>
+                </View>
+                <InputField label="Desa / Kelurahan" fieldKey="desa_kelurahan" icon={MapPin} value={formData.desa_kelurahan} onChangeText={handleChange} />
+                <InputField label="Kecamatan" fieldKey="kecamatan" icon={MapPin} value={formData.kecamatan} onChangeText={handleChange} />
+                <InputField label="Kabupaten / Kota" fieldKey="kabupaten_kota" icon={MapPin} value={formData.kabupaten_kota} onChangeText={handleChange} />
+                <InputField label="Kode Pos" fieldKey="kode_pos" icon={MapPin} keyboardType="numeric" value={formData.kode_pos} onChangeText={handleChange} />
+              </FormSection>
+            )}
 
-            <FormSection title="Kesejahteraan" icon={Truck}>
-              <InputField label="Hobi" fieldKey="hobi" icon={Heart} value={formData.hobi} onChangeText={handleChange} />
-              <InputField label="Cita-cita" fieldKey="cita_cita" icon={Award} value={formData.cita_cita} onChangeText={handleChange} />
-              <SelectField label="Jenis Tinggal" fieldKey="jenis_tinggal_id_str" icon={MapPin} value={formData.jenis_tinggal_id_str} options={['Bersama orang tua', 'Wali', 'Kost', 'Asrama', 'Panti Asuhan', 'Pesantren', 'Lainnya']} onSelect={handleChange} />
-              <SelectField label="Transportasi" fieldKey="alat_transportasi_id_str" icon={Truck} value={formData.alat_transportasi_id_str} options={['Sepeda motor', 'Mobil pribadi', 'Jalan Kaki', 'Angkutan Umum', 'Ojek', 'Lainnya']} onSelect={handleChange} />
-              <View className="flex-row gap-4">
-                 <View className="flex-1"><InputField label="Jarak (km)" fieldKey="jarak_rumah_ke_sekolah_km" icon={MapPin} keyboardType="numeric" value={formData.jarak_rumah_ke_sekolah_km} onChangeText={handleChange} /></View>
-                 <View className="flex-1"><InputField label="Waktu (menit)" fieldKey="waktu_tempuh_menit" icon={Info} keyboardType="numeric" value={formData.waktu_tempuh_menit} onChangeText={handleChange} /></View>
-              </View>
-              <SelectField label="Penerima KIP" fieldKey="penerima_kip" icon={Heart} value={formData.penerima_kip} options={['Ya', 'Tidak']} onSelect={handleChange} />
-              <InputField label="No. KIP" fieldKey="no_kip" icon={Info} value={formData.no_kip} onChangeText={handleChange} />
-              <SelectField label="Penerima KPS/PKH" fieldKey="penerima_kps" icon={Heart} value={formData.penerima_kps} options={['Ya', 'Tidak']} onSelect={handleChange} />
-            </FormSection>
+            {activeTab === 'Lainnya' && (
+              <>
+                <FormSection title="Kesejahteraan" icon={Truck}>
+                  <InputField label="Hobi" fieldKey="hobi" icon={Heart} value={formData.hobi} onChangeText={handleChange} />
+                  <InputField label="Cita-cita" fieldKey="cita_cita" icon={Award} value={formData.cita_cita} onChangeText={handleChange} />
+                  <SelectField label="Jenis Tinggal" fieldKey="jenis_tinggal_id_str" icon={MapPin} value={formData.jenis_tinggal_id_str} options={['Bersama orang tua', 'Wali', 'Kost', 'Asrama', 'Panti Asuhan', 'Pesantren', 'Lainnya']} onSelect={handleChange} />
+                  <SelectField label="Transportasi" fieldKey="alat_transportasi_id_str" icon={Truck} value={formData.alat_transportasi_id_str} options={['Sepeda motor', 'Mobil pribadi', 'Jalan Kaki', 'Angkutan Umum', 'Ojek', 'Lainnya']} onSelect={handleChange} />
+                  <View className="flex-row gap-4">
+                     <View className="flex-1"><InputField label="Jarak (km)" fieldKey="jarak_rumah_ke_sekolah_km" icon={MapPin} keyboardType="numeric" value={formData.jarak_rumah_ke_sekolah_km} onChangeText={handleChange} /></View>
+                     <View className="flex-1"><InputField label="Waktu (menit)" fieldKey="waktu_tempuh_menit" icon={Info} keyboardType="numeric" value={formData.waktu_tempuh_menit} onChangeText={handleChange} /></View>
+                  </View>
+                  <SelectField label="Penerima KIP" fieldKey="penerima_kip" icon={Heart} value={formData.penerima_kip} options={['Ya', 'Tidak']} onSelect={handleChange} />
+                  <InputField label="No. KIP" fieldKey="no_kip" icon={Info} value={formData.no_kip} onChangeText={handleChange} />
+                  <SelectField label="Penerima KPS/PKH" fieldKey="penerima_kps" icon={Heart} value={formData.penerima_kps} options={['Ya', 'Tidak']} onSelect={handleChange} />
+                </FormSection>
 
-            <FormSection title="Data Ayah" icon={Users}>
-              <InputField label="Nama Ayah" fieldKey="nama_ayah" icon={User} value={formData.nama_ayah} onChangeText={handleChange} />
-              <InputField label="Tahun Lahir" fieldKey="tahun_lahir_ayah" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_ayah} onChangeText={handleChange} />
-              <InputField label="Pekerjaan" fieldKey="pekerjaan_ayah_id_str" icon={Info} value={formData.pekerjaan_ayah_id_str} onChangeText={handleChange} />
-              <InputField label="Penghasilan" fieldKey="penghasilan_ayah_id_str" icon={Heart} value={formData.penghasilan_ayah_id_str} onChangeText={handleChange} />
-              <InputField label="WhatsApp Ayah" fieldKey="no_wa_ayah" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_ayah} onChangeText={handleChange} />
-            </FormSection>
+                <FormSection title="Riwayat Pendidikan" icon={BookOpen}>
+                  <InputField label="Sekolah Asal" fieldKey="sekolah_asal" icon={User} value={formData.sekolah_asal} onChangeText={handleChange} />
+                  <InputField label="NPSN Sekolah Asal" fieldKey="npsn_sekolah_asal" icon={Info} keyboardType="numeric" value={formData.npsn_sekolah_asal} onChangeText={handleChange} />
+                  <InputField label="No. Ijazah" fieldKey="no_seri_ijazah" icon={FileText} value={formData.no_seri_ijazah} onChangeText={handleChange} />
+                  <InputField label="No. SKHUN" fieldKey="no_seri_skhun" icon={FileText} value={formData.no_seri_skhun} onChangeText={handleChange} />
+                  <InputField label="No. Peserta UN" fieldKey="no_ujian_nasional" icon={FileText} value={formData.no_ujian_nasional} onChangeText={handleChange} />
+                </FormSection>
+              </>
+            )}
 
-            <FormSection title="Data Ibu" icon={Users}>
-              <InputField label="Nama Ibu" fieldKey="nama_ibu" icon={User} value={formData.nama_ibu} onChangeText={handleChange} />
-              <InputField label="Tahun Lahir" fieldKey="tahun_lahir_ibu" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_ibu} onChangeText={handleChange} />
-              <InputField label="Pekerjaan" fieldKey="pekerjaan_ibu_id_str" icon={Info} value={formData.pekerjaan_ibu_id_str} onChangeText={handleChange} />
-              <InputField label="Penghasilan" fieldKey="penghasilan_ibu_id_str" icon={Heart} value={formData.penghasilan_ibu_id_str} onChangeText={handleChange} />
-              <InputField label="WhatsApp Ibu" fieldKey="no_wa_ibu" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_ibu} onChangeText={handleChange} />
-            </FormSection>
+            {activeTab === 'Keluarga' && (
+              <>
+                <FormSection title="Data Ayah" icon={Users}>
+                  <InputField label="Nama Ayah" fieldKey="nama_ayah" icon={User} value={formData.nama_ayah} onChangeText={handleChange} />
+                  <InputField label="Tahun Lahir" fieldKey="tahun_lahir_ayah" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_ayah} onChangeText={handleChange} />
+                  <InputField label="Pekerjaan" fieldKey="pekerjaan_ayah_id_str" icon={Info} value={formData.pekerjaan_ayah_id_str} onChangeText={handleChange} />
+                  <InputField label="Penghasilan" fieldKey="penghasilan_ayah_id_str" icon={Heart} value={formData.penghasilan_ayah_id_str} onChangeText={handleChange} />
+                  <InputField label="WhatsApp Ayah" fieldKey="no_wa_ayah" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_ayah} onChangeText={handleChange} />
+                </FormSection>
 
-            <FormSection title="Data Wali" icon={Users}>
-              <InputField label="Nama Wali" fieldKey="nama_wali" icon={User} value={formData.nama_wali} onChangeText={handleChange} />
-              <InputField label="Tahun Lahir" fieldKey="tahun_lahir_wali" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_wali} onChangeText={handleChange} />
-              <InputField label="Pekerjaan" fieldKey="pekerjaan_wali_id_str" icon={Info} value={formData.pekerjaan_wali_id_str} onChangeText={handleChange} />
-              <InputField label="WhatsApp Wali" fieldKey="no_wa_wali" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_wali} onChangeText={handleChange} />
-            </FormSection>
+                <FormSection title="Data Ibu" icon={Users}>
+                  <InputField label="Nama Ibu" fieldKey="nama_ibu" icon={User} value={formData.nama_ibu} onChangeText={handleChange} />
+                  <InputField label="Tahun Lahir" fieldKey="tahun_lahir_ibu" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_ibu} onChangeText={handleChange} />
+                  <InputField label="Pekerjaan" fieldKey="pekerjaan_ibu_id_str" icon={Info} value={formData.pekerjaan_ibu_id_str} onChangeText={handleChange} />
+                  <InputField label="Penghasilan" fieldKey="penghasilan_ibu_id_str" icon={Heart} value={formData.penghasilan_ibu_id_str} onChangeText={handleChange} />
+                  <InputField label="WhatsApp Ibu" fieldKey="no_wa_ibu" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_ibu} onChangeText={handleChange} />
+                </FormSection>
 
-            <FormSection title="Riwayat Pendidikan" icon={BookOpen}>
-              <InputField label="Sekolah Asal" fieldKey="sekolah_asal" icon={User} value={formData.sekolah_asal} onChangeText={handleChange} />
-              <InputField label="NPSN Sekolah Asal" fieldKey="npsn_sekolah_asal" icon={Info} keyboardType="numeric" value={formData.npsn_sekolah_asal} onChangeText={handleChange} />
-              <InputField label="No. Ijazah" fieldKey="no_seri_ijazah" icon={FileText} value={formData.no_seri_ijazah} onChangeText={handleChange} />
-              <InputField label="No. SKHUN" fieldKey="no_seri_skhun" icon={FileText} value={formData.no_seri_skhun} onChangeText={handleChange} />
-              <InputField label="No. Peserta UN" fieldKey="no_ujian_nasional" icon={FileText} value={formData.no_ujian_nasional} onChangeText={handleChange} />
-            </FormSection>
+                <FormSection title="Data Wali" icon={Users}>
+                  <InputField label="Nama Wali" fieldKey="nama_wali" icon={User} value={formData.nama_wali} onChangeText={handleChange} />
+                  <InputField label="Tahun Lahir" fieldKey="tahun_lahir_wali" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_wali} onChangeText={handleChange} />
+                  <InputField label="Pekerjaan" fieldKey="pekerjaan_wali_id_str" icon={Info} value={formData.pekerjaan_wali_id_str} onChangeText={handleChange} />
+                  <InputField label="WhatsApp Wali" fieldKey="no_wa_wali" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_wali} onChangeText={handleChange} />
+                </FormSection>
+              </>
+            )}
 
           </View>
         </Reanimated.ScrollView>
@@ -423,7 +499,13 @@ const EditProfileScreen = ({ navigation, route }: any) => {
 
       </KeyboardAvoidingView>
       
-      <CustomAlert visible={alertConfig.visible} title={alertConfig.title} message={alertConfig.message} type={alertConfig.type} onClose={alertConfig.onClose} />
+      <StatusModal 
+        visible={alertConfig.visible}
+        type={alertConfig.type as any}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        onClose={alertConfig.onClose}
+      />
     </SafeAreaView>
   );
 };

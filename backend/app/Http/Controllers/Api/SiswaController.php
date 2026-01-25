@@ -107,14 +107,19 @@ class SiswaController extends Controller
                 }
 
                 $file = $request->file('foto');
-                // Generate nama file unik: TIMESTAMP_SLUG-NAMA.EXT
                 $filename = time() . '_' . \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
                 
-                // Simpan dengan nama eksplisit ke folder siswa/foto
+                // Simpan file
                 $path = $file->storeAs('siswa/foto', $filename, 'public');
                 
-                // Paksa path yang tersimpan adalah 'siswa/foto/namafile.jpg'
-                $directChanges['foto'] = $path; 
+                // FORCE UPDATE LANGSUNG KE DB (Bypassing Eloquent mutators or delays)
+                DB::table('siswas')->where('id', $siswa->id)->update(['foto' => $path]);
+                
+                // Set update di object user untuk response JSON nanti
+                $siswa->foto = $path; 
+                
+                // Hapus dari input agar tidak diproses lagi di loop bawah
+                unset($input['foto']);
 
             } catch (\Exception $e) {
                 Log::error('Photo upload failed: ' . $e->getMessage());

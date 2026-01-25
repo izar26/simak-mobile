@@ -3,40 +3,43 @@ import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Ref
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getUser, logout } from '../../services/auth';
-import { MAIN_APP_URL } from '@env';
+import { MAIN_APP_URL, API_URL } from '@env';
 import api from '../../services/api';
 import {
-  User, MapPin, Heart, Truck, Users, FileText, ChevronDown, ChevronUp, ExternalLink, LogOut, Award, Phone, Mail, Edit3, Folder, BookOpen, CreditCard
+  User, MapPin, Heart, Truck, Users, FileText, ChevronDown, ChevronUp, ExternalLink, LogOut, Award, Phone, Mail, Edit3, Folder, BookOpen, CreditCard, Printer, Download
 } from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Skeleton from '../../components/Skeleton';
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import { getToken } from '../../services/auth';
+import { Alert, Platform } from 'react-native';
+import StatusModal from '../../components/StatusModal';
 
 const HomeScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Default expanded sections
+  // Modal Status State
+  const [modalStatus, setModalStatus] = useState({
+    visible: false,
+    type: 'success' as 'success' | 'error' | 'warning' | 'info',
+    title: '',
+    message: ''
+  });
+  
+  // Expanded sections state
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
-    'identitas': true,
-    'alamat': false,
-    'kesejahteraan': false,
-    'ortu': false,
-    'transport': false,
-    'riwayat': false,
-    'berkas': false
+    'identitas': true, 'alamat': false, 'kesejahteraan': false, 'ortu': false, 'riwayat': false
   });
 
-  const toggleSection = (key: string) => {
-    setExpandedSections(prev => ({...prev, [key]: !prev[key]}));
-  };
+  const toggleSection = (key: string) => setExpandedSections(prev => ({...prev, [key]: !prev[key]}));
 
   const fetchData = async () => {
     try {
       const response = await api.get('/me');
       setUser(response.data);
     } catch (error) {
-      console.log('Gagal ambil data user', error);
       const localUser = await getUser();
       setUser(localUser);
     } finally {
@@ -45,15 +48,64 @@ const HomeScreen = ({ navigation }: any) => {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { fetchData(); }, []));
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchData();
+  const onRefresh = () => { setRefreshing(true); fetchData(); };
+
+  const handleCetakBiodata = async () => {
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const { dirs } = ReactNativeBlobUtil.fs;
+      const fileName = `Biodata_${siswa?.nama || 'Siswa'}.pdf`;
+      const path = Platform.OS === 'android' ? `${dirs.DownloadDir}/${fileName}` : `${dirs.DocumentDir}/${fileName}`;
+
+      ReactNativeBlobUtil.config({
+        fileCache: true,
+        addAndroidDownloads: {
+          useDownloadManager: true,
+          notification: true,
+          path: path,
+          description: 'Mengunduh Biodata Siswa...',
+          mediaScannable: true,
+          title: fileName,
+          mime: 'application/pdf',
+        },
+      })
+        .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
+          Authorization: `Bearer ${token}`,
+        })
+        .then((res) => {
+          if (Platform.OS === 'ios') {
+            ReactNativeBlobUtil.ios.previewDocument(res.path());
+          } else {
+            setModalStatus({
+              visible: true,
+              type: 'success',
+              title: 'Berhasil di Unduh!',
+              message: 'Biodata Anda telah tersimpan di folder Download perangkat Anda.'
+            });
+          }
+        })
+        .catch((err) => {
+          setModalStatus({
+            visible: true,
+            type: 'error',
+            title: 'Gagal Mengunduh',
+            message: 'Terjadi kesalahan saat mencoba mengunduh file. Cek internet Anda.'
+          });
+          console.error(err);
+        })
+        .finally(() => setLoading(false));
+    } catch (error) {
+      setLoading(false);
+      setModalStatus({
+        visible: true,
+        type: 'error',
+        title: 'Kesalahan Sistem',
+        message: 'Aplikasi tidak dapat menghubungi layanan cetak saat ini.'
+      });
+    }
   };
 
   const handleLogout = async () => {
@@ -61,29 +113,19 @@ const HomeScreen = ({ navigation }: any) => {
     navigation.getParent()?.replace('Login');
   };
 
-  const handleOpenFile = (path: string) => {
-    if (path) {
-      const fullUrl = `${MAIN_APP_URL}/storage/${path}`;
-      Linking.openURL(fullUrl).catch(err => console.error("Couldn't load page", err));
-    }
-  };
-
   if (loading && !user) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="relative bg-blue-600 pb-20 rounded-b-[40px] shadow-lg mb-14">
-           {/* Header Skeleton */}
+        <View className="relative bg-slate-200 pb-20 rounded-b-[40px] shadow-lg mb-14">
            <View className="items-center pt-8 px-6">
               <Skeleton variant="circle" width={112} height={112} style={{ marginBottom: 16, borderWidth: 4, borderColor: 'white' }} />
-              <Skeleton width={180} height={28} style={{ marginBottom: 8, backgroundColor: '#93c5fd' }} />
-              <Skeleton width={120} height={16} style={{ marginBottom: 16, backgroundColor: '#60a5fa' }} />
-              <Skeleton width={100} height={30} borderRadius={20} style={{ backgroundColor: '#ffffff30' }} />
+              <Skeleton width={180} height={28} style={{ marginBottom: 8 }} />
+              <Skeleton width={120} height={16} />
            </View>
         </View>
-
         <ScrollView className="px-4 -mt-14" showsVerticalScrollIndicator={false}>
-           {[1,2,3,4,5].map(i => (
-              <View key={i} className="bg-white rounded-2xl mb-4 shadow-sm border border-gray-100 p-4 flex-row items-center justify-between">
+           {[1,2,3,4].map(i => (
+              <View key={i} className="bg-white rounded-2xl mb-4 p-4 flex-row items-center justify-between shadow-sm">
                  <View className="flex-row items-center gap-3">
                     <Skeleton width={36} height={36} borderRadius={8} />
                     <Skeleton width={120} height={20} />
@@ -97,6 +139,18 @@ const HomeScreen = ({ navigation }: any) => {
   }
 
   const siswa = user?.siswa;
+  const isFemale = siswa?.jenis_kelamin === 'P';
+  
+  // THEME COLORS
+  const theme = {
+    primary: isFemale ? 'bg-rose-500' : 'bg-blue-600',
+    primarySoft: isFemale ? 'bg-rose-50' : 'bg-blue-50',
+    primaryBorder: isFemale ? 'border-rose-100' : 'border-blue-100',
+    primaryText: isFemale ? 'text-rose-600' : 'text-blue-600',
+    banner: isFemale ? 'bg-rose-600' : 'bg-blue-600',
+    tabActive: isFemale ? 'bg-rose-500/20 border-rose-500/30' : 'bg-white/20 border-white/30'
+  };
+
   const fotoUrl = siswa?.foto ? `${MAIN_APP_URL}/storage/${siswa.foto}` : null;
 
   const formatDate = (dateString: string) => {
@@ -105,26 +159,27 @@ const HomeScreen = ({ navigation }: any) => {
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  // Komponen Helper Section
   const SectionCard = ({ title, icon: Icon, sectionKey, children }: any) => (
-    <View className="bg-white rounded-2xl mb-4 shadow-sm border border-gray-100 overflow-hidden">
+    <View className="bg-white rounded-[28px] mb-4 shadow-sm border border-slate-100 overflow-hidden">
       <TouchableOpacity 
         activeOpacity={0.7}
         onPress={() => toggleSection(sectionKey)}
-        className="flex-row justify-between items-center p-4 bg-white"
+        className="flex-row justify-between items-center p-5 bg-white"
       >
-        <View className="flex-row items-center gap-3">
-          <View className="bg-blue-50 p-2 rounded-lg">
-            <Icon size={20} color="#2563eb" />
+        <View className="flex-row items-center gap-4">
+          <View className={`${theme.primarySoft} p-2.5 rounded-2xl`}>
+            <Icon size={20} color={isFemale ? '#f43f5e' : '#2563eb'} />
           </View>
-          <Text className="text-gray-800 font-bold text-base">{title}</Text>
+          <Text className="text-slate-800 font-black text-base tracking-tight">{title}</Text>
         </View>
-        {expandedSections[sectionKey] ? <ChevronUp size={20} color="#94a3b8" /> : <ChevronDown size={20} color="#94a3b8" />}
+        <View className="bg-slate-50 p-1.5 rounded-full">
+           {expandedSections[sectionKey] ? <ChevronUp size={18} color="#94a3b8" /> : <ChevronDown size={18} color="#94a3b8" />}
+        </View>
       </TouchableOpacity>
       
       {expandedSections[sectionKey] && (
-        <View className="px-4 pb-5 pt-0">
-          <View className="h-[1px] bg-gray-100 mb-4 w-full" />
+        <View className="px-5 pb-6 pt-0">
+          <View className="h-[1px] bg-slate-50 mb-5 w-full" />
           {children}
         </View>
       )}
@@ -132,67 +187,62 @@ const HomeScreen = ({ navigation }: any) => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-slate-50">
       <ScrollView 
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={isFemale ? ['#f43f5e'] : ['#2563eb']} />}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeIn.duration(600)}>
+        
         {/* Modern Header Design */}
-        <View className="relative bg-blue-600 pb-20 rounded-b-[40px] shadow-lg">
+        <View className={`relative ${theme.banner} pb-20 rounded-b-[48px] shadow-2xl`}>
           <View className="absolute top-0 right-0 p-10 opacity-10">
-             <Award size={150} color="white" />
+             <Award size={180} color="white" />
           </View>
           
-          {/* Tombol Edit Header */}
           <View className="absolute top-10 right-6 z-10">
             <TouchableOpacity 
               onPress={() => navigation.navigate('EditProfile', { user })}
-              className="bg-white/20 p-2 rounded-full backdrop-blur-md border border-white/30"
+              className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30"
             >
               <Edit3 size={20} color="white" />
             </TouchableOpacity>
           </View>
           
-          <View className="items-center pt-8 px-6">
+          <View className="items-center pt-10 px-6">
             <View className="relative">
-              <View className="bg-white p-1.5 rounded-full shadow-2xl mb-4">
+              <View className="bg-white p-1.5 rounded-full shadow-2xl mb-5">
                 {fotoUrl ? (
-                  <Image 
-                    source={{ uri: fotoUrl }} 
-                    className="w-28 h-28 rounded-full"
-                    resizeMode="cover"
-                  />
+                  <Image source={{ uri: fotoUrl }} className="w-32 h-32 rounded-full" resizeMode="cover" />
                 ) : (
-                  <View className="w-28 h-28 bg-gray-100 rounded-full items-center justify-center">
-                     <User size={40} color="#9ca3af" />
+                  <View className="w-32 h-32 bg-slate-100 rounded-full items-center justify-center">
+                     <User size={48} color="#94a3b8" />
                   </View>
                 )}
               </View>
-              <View className={`absolute bottom-4 right-0 w-6 h-6 rounded-full border-2 border-white ${siswa?.status === 'Aktif' ? 'bg-green-500' : 'bg-gray-400'}`} />
+              {/* Indikator Online Dihapus Sesuai Permintaan */}
             </View>
 
-            <Text className="text-white text-2xl font-bold text-center mb-1">
+            <Text className="text-white text-2xl font-black text-center mb-1 tracking-tight">
               {siswa?.nama || user?.nama}
             </Text>
-            <Text className="text-blue-100 font-medium text-sm mb-4">
+            <Text className="text-white/80 font-bold text-sm mb-5 tracking-wide">
               {siswa?.nisn ? `${siswa.nisn} • ${siswa?.nipd || '-'}` : user?.username}
             </Text>
             
-            <View className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 flex-row items-center gap-2">
+            <View className={`${theme.tabActive} backdrop-blur-md px-5 py-2 rounded-2xl border flex-row items-center gap-2 shadow-sm`}>
                <Award size={14} color="white" />
-               <Text className="text-white text-xs font-bold uppercase tracking-wider">
+               <Text className="text-white text-xs font-black uppercase tracking-widest">
                  {siswa?.nama_rombel || 'Belum Masuk Kelas'}
                </Text>
             </View>
           </View>
         </View>
 
-        {/* Content Container - Offset to overlap header */}
-        <View className="px-4 -mt-14">
+        {/* Content Container */}
+        <View className="px-5 -mt-14">
           
-          {/* 1. IDENTITAS */}
           <SectionCard title="Identitas & Kontak" icon={User} sectionKey="identitas">
             <View className="flex-row flex-wrap">
               <InfoBox label="NIK" value={siswa?.nik} width="50%" />
@@ -202,145 +252,120 @@ const HomeScreen = ({ navigation }: any) => {
               <InfoBox label="Tanggal Lahir" value={formatDate(siswa?.tanggal_lahir)} width="50%" />
               <InfoBox label="Agama" value={siswa?.agama_id_str} width="50%" />
               <InfoBox label="Kewarganegaraan" value="Indonesia" width="50%" />
-              <InfoBox label="Berkebutuhan Khusus" value={siswa?.kebutuhan_khusus} width="50%" />
+              <InfoBox label="Kebutuhan Khusus" value={siswa?.kebutuhan_khusus} width="50%" />
             </View>
             
-            <View className="mt-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
-              <ContactRow icon={Mail} label="Email Akun" value={user?.username || user?.email} />
-              <ContactRow icon={Phone} label="Telp Rumah" value={user?.no_telepon} />
-              <ContactRow icon={Phone} label="No. HP Akun" value={user?.no_hp} />
-              <View className="h-[1px] bg-blue-200 my-2" />
-              <ContactRow icon={Phone} label="HP Siswa" value={siswa?.nomor_telepon_seluler} />
-              <ContactRow icon={Phone} label="WhatsApp" value={siswa?.no_wa} />
+            <View className={`${theme.primarySoft} p-4 rounded-[20px] border ${theme.primaryBorder} mt-4`}>
+              <ContactRow icon={Mail} label="Email Akun" value={user?.username || user?.email} isFemale={isFemale} />
+              <ContactRow icon={Phone} label="HP Siswa" value={siswa?.nomor_telepon_seluler} isFemale={isFemale} />
+              <ContactRow icon={Phone} label="WhatsApp" value={siswa?.no_wa} isFemale={isFemale} />
             </View>
           </SectionCard>
 
-          {/* 2. ALAMAT */}
           <SectionCard title="Alamat Lengkap" icon={MapPin} sectionKey="alamat">
-            <Text className="text-gray-800 font-medium text-sm mb-3 leading-6">
-              {user?.alamat || 'Alamat belum diisi'}
-            </Text>
-            <View className="flex-row flex-wrap bg-gray-50 p-3 rounded-xl">
+            <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
+               <Text className="text-slate-700 font-bold text-sm leading-5">
+                 {user?.alamat || 'Alamat jalan belum diisi'}
+               </Text>
+            </View>
+            <View className="flex-row flex-wrap bg-slate-50 p-4 rounded-2xl border border-slate-100">
               <InfoBox label="RT / RW" value={`${siswa?.rt || '-'} / ${siswa?.rw || '-'}`} width="50%" />
               <InfoBox label="Kode Pos" value={siswa?.kode_pos} width="50%" />
               <InfoBox label="Desa/Kel" value={siswa?.desa_kelurahan} width="50%" />
               <InfoBox label="Kecamatan" value={siswa?.kecamatan} width="50%" />
               <InfoBox label="Kab/Kota" value={siswa?.kabupaten_kota} width="100%" />
-              <InfoBox label="Provinsi" value={siswa?.provinsi} width="100%" />
             </View>
           </SectionCard>
 
-          {/* 3. KESEJAHTERAAN */}
-          <SectionCard title="Kesejahteraan" icon={Heart} sectionKey="kesejahteraan">
-            <View className="flex-row flex-wrap mb-3">
-               <InfoBox label="Hobi" value={siswa?.hobi} width="50%" />
-               <InfoBox label="Cita-cita" value={siswa?.cita_cita} width="50%" />
-            </View>
-            <View className="gap-3">
-              <BadgeRow label="Penerima KIP" active={siswa?.penerima_kip === 'Ya'} value={siswa?.no_kip} />
-              {siswa?.penerima_kip === 'Ya' && <InfoBox label="Nama di KIP" value={siswa?.nama_di_kip} width="100%" />}
-              <BadgeRow label="Layak PIP" active={siswa?.layak_pip === 'Ya'} />
-              <BadgeRow label="Penerima KPS/PKH" active={siswa?.penerima_kps === 'Ya'} value={siswa?.no_kps} />
-            </View>
-          </SectionCard>
-
-          {/* 4. TRANSPORTASI */}
-          <SectionCard title="Transportasi & Fisik" icon={Truck} sectionKey="transport">
-            <View className="flex-row flex-wrap">
-              <InfoBox label="Transportasi" value={siswa?.alat_transportasi_id_str} width="50%" />
-              <InfoBox label="Jarak Sekolah" value={siswa?.jarak_rumah_ke_sekolah_km ? `${siswa.jarak_rumah_ke_sekolah_km} km` : '-'} width="50%" />
-              <InfoBox label="Waktu Tempuh" value={siswa?.waktu_tempuh_menit ? `${siswa.waktu_tempuh_menit} menit` : '-'} width="50%" />
-              <InfoBox label="Jml Saudara" value={siswa?.jumlah_saudara_kandung} width="50%" />
-              <InfoBox label="Tinggi Badan" value={siswa?.tinggi_badan ? `${siswa.tinggi_badan} cm` : '-'} width="50%" />
-              <InfoBox label="Berat Badan" value={siswa?.berat_badan ? `${siswa.berat_badan} kg` : '-'} width="50%" />
-            </View>
-          </SectionCard>
-
-          {/* 5. ORANG TUA */}
           <SectionCard title="Data Orang Tua" icon={Users} sectionKey="ortu">
             <View className="gap-6">
-              <ParentInfo title="Ayah" name={siswa?.nama_ayah} job={siswa?.pekerjaan_ayah_id_str} phone={siswa?.no_wa_ayah} />
-              <ParentInfo title="Ibu" name={siswa?.nama_ibu} job={siswa?.pekerjaan_ibu_id_str} phone={siswa?.no_wa_ibu} />
-              {siswa?.nama_wali && (
-                <ParentInfo title="Wali" name={siswa?.nama_wali} job={siswa?.pekerjaan_wali_id_str} phone={siswa?.no_wa_wali} />
-              )}
+              <ParentInfo title="Ayah" name={siswa?.nama_ayah} job={siswa?.pekerjaan_ayah_id_str} phone={siswa?.no_wa_ayah} isFemale={isFemale} />
+              <View className="h-[1px] bg-slate-50 w-full" />
+              <ParentInfo title="Ibu" name={siswa?.nama_ibu} job={siswa?.pekerjaan_ibu_id_str} phone={siswa?.no_wa_ibu} isFemale={isFemale} />
             </View>
           </SectionCard>
 
-          {/* 6. RIWAYAT PENDIDIKAN */}
-          <SectionCard title="Riwayat Pendidikan" icon={BookOpen} sectionKey="riwayat">
-            <View className="mb-2">
-               <InfoBox label="Sekolah Asal" value={siswa?.sekolah_asal} width="100%" />
-               <InfoBox label="NPSN Sekolah Asal" value={siswa?.npsn_sekolah_asal} width="100%" />
-               <View className="flex-row mt-2 gap-2 flex-wrap">
-                 <InfoBox label="No. Ijazah" value={siswa?.no_seri_ijazah} width="48%" />
-                 <InfoBox label="No. SKHUN" value={siswa?.no_seri_skhun} width="48%" />
-                 <InfoBox label="No. Peserta UN" value={siswa?.no_ujian_nasional} width="48%" />
-                 <InfoBox label="No. Reg Akta Lahir" value={siswa?.no_registrasi_akta_lahir} width="48%" />
-               </View>
+          <SectionCard title="Pendidikan Asal" icon={BookOpen} sectionKey="riwayat">
+            <InfoBox label="Sekolah Asal" value={siswa?.sekolah_asal} />
+            <InfoBox label="NPSN Asal" value={siswa?.npsn_sekolah_asal} />
+            <View className="flex-row flex-wrap mt-2">
+               <InfoBox label="No. Ijazah" value={siswa?.no_seri_ijazah} width="50%" />
+               <InfoBox label="No. SKHUN" value={siswa?.no_seri_skhun} width="50%" />
             </View>
           </SectionCard>
 
           <TouchableOpacity
-            className="bg-white p-4 rounded-xl border border-red-100 flex-row justify-center items-center shadow-sm mb-4 active:bg-red-50"
+            className={`${theme.primary} p-5 rounded-[24px] flex-row justify-center items-center shadow-lg mb-4 active:opacity-90`}
+            onPress={handleCetakBiodata}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <>
+                <Printer size={20} color="white" />
+                <Text className="text-white font-black ml-3 uppercase tracking-widest text-xs">Cetak Biodata (PDF)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="bg-white p-5 rounded-[24px] border border-red-100 flex-row justify-center items-center shadow-sm mb-6 active:bg-red-50"
             onPress={handleLogout}
           >
-            <LogOut size={18} color="#ef4444" />
-            <Text className="text-red-500 font-bold ml-2">Keluar Aplikasi</Text>
+            <LogOut size={20} color="#ef4444" />
+            <Text className="text-red-600 font-black ml-3 uppercase tracking-widest text-xs">Keluar Aplikasi</Text>
           </TouchableOpacity>
           
-          <Text className="text-gray-400 text-center text-xs pb-4">Simak Mobile v1.0.0</Text>
+          <Text className="text-slate-400 text-center text-[10px] font-bold uppercase tracking-widest pb-4">Simak Mobile v1.0.0</Text>
         </View>
-        </Animated.View>
 
+        </Animated.View>
       </ScrollView>
+
+      {/* MODAL STATUS GLOBAL */}
+      <StatusModal 
+        visible={modalStatus.visible}
+        type={modalStatus.type}
+        title={modalStatus.title}
+        message={modalStatus.message}
+        onClose={() => setModalStatus({ ...modalStatus, visible: false })}
+      />
     </SafeAreaView>
   );
 };
 
 // UI Components Helpers
 const InfoBox = ({ label, value, width = '100%' }: any) => (
-  <View style={{ width }} className="mb-3 pr-2">
-    <Text className="text-gray-400 text-[10px] uppercase font-bold mb-0.5">{label}</Text>
-    <Text className="text-gray-800 text-sm font-medium">{value || '-'}</Text>
+  <View style={{ width }} className="mb-4 pr-2">
+    <Text className="text-slate-400 text-[10px] uppercase font-black tracking-tighter mb-1">{label}</Text>
+    <Text className="text-slate-800 text-sm font-bold leading-4">{value || '-'}</Text>
   </View>
 );
 
-const ContactRow = ({ icon: Icon, label, value }: any) => (
-  <View className="flex-row items-center py-2">
-    <Icon size={14} color="#64748b" />
-    <Text className="text-gray-500 text-xs ml-2 w-16">{label}</Text>
-    <Text className="text-gray-800 text-xs font-bold flex-1 text-right">{value || '-'}</Text>
-  </View>
-);
-
-const BadgeRow = ({ label, active, value }: any) => (
-  <View className="flex-row justify-between items-center bg-gray-50 p-3 rounded-lg">
-    <Text className="text-gray-600 text-sm">{label}</Text>
-    <View className="flex-row items-center gap-2">
-      {value && <Text className="text-gray-800 font-bold text-xs bg-white px-2 py-1 rounded border border-gray-200">{value}</Text>}
-      <View className={`px-2 py-1 rounded-md ${active ? 'bg-green-100' : 'bg-gray-200'}`}>
-        <Text className={`text-[10px] font-bold ${active ? 'text-green-700' : 'text-gray-500'}`}>
-          {active ? 'YA' : 'TIDAK'}
-        </Text>
-      </View>
+const ContactRow = ({ icon: Icon, label, value, isFemale }: any) => (
+  <View className="flex-row items-center py-2.5">
+    <View className={`p-1.5 rounded-lg ${isFemale ? 'bg-rose-100' : 'bg-blue-100'} mr-3`}>
+       <Icon size={14} color={isFemale ? '#f43f5e' : '#2563eb'} />
     </View>
+    <Text className="text-slate-500 text-xs font-bold flex-1">{label}</Text>
+    <Text className="text-slate-800 text-xs font-black">{value || '-'}</Text>
   </View>
 );
 
-const ParentInfo = ({ title, name, job, phone }: any) => (
+const ParentInfo = ({ title, name, job, phone, isFemale }: any) => (
   <View className="flex-row items-center">
-    <View className="w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3">
-      <Text className="text-blue-600 font-bold text-xs">{title.substring(0,1)}</Text>
+    <View className={`w-12 h-12 rounded-2xl ${isFemale ? 'bg-rose-100' : 'bg-blue-100'} items-center justify-center mr-4`}>
+      <Text className={`${isFemale ? 'text-rose-600' : 'text-blue-600'} font-black text-lg`}>{title.substring(0,1)}</Text>
     </View>
     <View className="flex-1">
-      <Text className="text-gray-400 text-[10px] uppercase font-bold">{title}</Text>
-      <Text className="text-gray-800 font-bold text-sm">{name || '-'}</Text>
-      <Text className="text-gray-500 text-xs">{job || '-'}</Text>
+      <Text className="text-slate-400 text-[9px] uppercase font-black tracking-widest mb-0.5">{title}</Text>
+      <Text className="text-slate-800 font-black text-base mb-0.5">{name || '-'}</Text>
+      <Text className="text-slate-500 text-xs font-bold">{job || '-'}</Text>
       {phone && (
-        <View className="flex-row items-center mt-1">
-           <Phone size={10} color="#22c55e" />
-           <Text className="text-green-600 text-xs font-bold ml-1">{phone}</Text>
+        <View className="flex-row items-center mt-1.5">
+           <Phone size={10} color={isFemale ? '#f43f5e' : '#2563eb'} />
+           <Text className={`${isFemale ? 'text-rose-600' : 'text-blue-600'} text-[11px] font-black ml-1.5`}>{phone}</Text>
         </View>
       )}
     </View>
