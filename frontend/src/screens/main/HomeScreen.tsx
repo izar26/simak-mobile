@@ -8,6 +8,8 @@ import api from '../../services/api';
 import {
   User, MapPin, Heart, Truck, Users, FileText, ChevronDown, ChevronUp, ExternalLink, LogOut, Award, Phone, Mail, Edit3, Folder, BookOpen, CreditCard
 } from 'lucide-react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import Skeleton from '../../components/Skeleton';
 
 const HomeScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
@@ -68,9 +70,29 @@ const HomeScreen = ({ navigation }: any) => {
 
   if (loading && !user) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="relative bg-blue-600 pb-20 rounded-b-[40px] shadow-lg mb-14">
+           {/* Header Skeleton */}
+           <View className="items-center pt-8 px-6">
+              <Skeleton variant="circle" width={112} height={112} style={{ marginBottom: 16, borderWidth: 4, borderColor: 'white' }} />
+              <Skeleton width={180} height={28} style={{ marginBottom: 8, backgroundColor: '#93c5fd' }} />
+              <Skeleton width={120} height={16} style={{ marginBottom: 16, backgroundColor: '#60a5fa' }} />
+              <Skeleton width={100} height={30} borderRadius={20} style={{ backgroundColor: '#ffffff30' }} />
+           </View>
+        </View>
+
+        <ScrollView className="px-4 -mt-14" showsVerticalScrollIndicator={false}>
+           {[1,2,3,4,5].map(i => (
+              <View key={i} className="bg-white rounded-2xl mb-4 shadow-sm border border-gray-100 p-4 flex-row items-center justify-between">
+                 <View className="flex-row items-center gap-3">
+                    <Skeleton width={36} height={36} borderRadius={8} />
+                    <Skeleton width={120} height={20} />
+                 </View>
+                 <Skeleton width={20} height={20} borderRadius={10} />
+              </View>
+           ))}
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -116,6 +138,7 @@ const HomeScreen = ({ navigation }: any) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
+        <Animated.View entering={FadeIn.duration(600)}>
         {/* Modern Header Design */}
         <View className="relative bg-blue-600 pb-20 rounded-b-[40px] shadow-lg">
           <View className="absolute top-0 right-0 p-10 opacity-10">
@@ -160,7 +183,7 @@ const HomeScreen = ({ navigation }: any) => {
             <View className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 flex-row items-center gap-2">
                <Award size={14} color="white" />
                <Text className="text-white text-xs font-bold uppercase tracking-wider">
-                 {siswa?.nama_kelas_fixed || siswa?.nama_rombel || 'Belum Masuk Kelas'}
+                 {siswa?.nama_rombel || 'Belum Masuk Kelas'}
                </Text>
             </View>
           </View>
@@ -178,7 +201,7 @@ const HomeScreen = ({ navigation }: any) => {
               <InfoBox label="Tempat Lahir" value={siswa?.tempat_lahir} width="50%" />
               <InfoBox label="Tanggal Lahir" value={formatDate(siswa?.tanggal_lahir)} width="50%" />
               <InfoBox label="Agama" value={siswa?.agama_id_str} width="50%" />
-              <InfoBox label="Kewarganegaraan" value={siswa?.kewarganegaraan || 'Indonesia'} width="50%" />
+              <InfoBox label="Kewarganegaraan" value="Indonesia" width="50%" />
               <InfoBox label="Berkebutuhan Khusus" value={siswa?.kebutuhan_khusus} width="50%" />
             </View>
             
@@ -195,7 +218,7 @@ const HomeScreen = ({ navigation }: any) => {
           {/* 2. ALAMAT */}
           <SectionCard title="Alamat Lengkap" icon={MapPin} sectionKey="alamat">
             <Text className="text-gray-800 font-medium text-sm mb-3 leading-6">
-              {user?.alamat || siswa?.alamat_jalan || 'Alamat belum diisi'}
+              {user?.alamat || 'Alamat belum diisi'}
             </Text>
             <View className="flex-row flex-wrap bg-gray-50 p-3 rounded-xl">
               <InfoBox label="RT / RW" value={`${siswa?.rt || '-'} / ${siswa?.rw || '-'}`} width="50%" />
@@ -268,6 +291,7 @@ const HomeScreen = ({ navigation }: any) => {
           
           <Text className="text-gray-400 text-center text-xs pb-4">Simak Mobile v1.0.0</Text>
         </View>
+        </Animated.View>
 
       </ScrollView>
     </SafeAreaView>

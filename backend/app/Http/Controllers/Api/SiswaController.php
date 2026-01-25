@@ -125,7 +125,12 @@ class SiswaController extends Controller
             $newVal = ($value === '' || $value === 'null' || is_null($value)) ? '' : trim((string)$value);
 
             // Ambil Nilai Database ASLI
-            $dbValRaw = $siswa->getRawOriginal($key);
+            if ($key === 'alamat_jalan') {
+                // Khusus alamat, bandingkan dengan data di tabel users (pengguna)
+                $dbValRaw = $user->alamat;
+            } else {
+                $dbValRaw = $siswa->getRawOriginal($key);
+            }
             $oldVal = ($dbValRaw === '' || $dbValRaw === 'null' || is_null($dbValRaw)) ? '' : trim((string)$dbValRaw);
 
             // Normalisasi khusus TANGGAL (Ambil YYYY-MM-DD saja)

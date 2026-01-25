@@ -7,6 +7,7 @@ import ImageCropPicker from 'react-native-image-crop-picker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import api from '../../services/api';
 import { MAIN_APP_URL } from '@env';
+import Skeleton from '../../components/Skeleton';
 
 const PreviewModal = ({ visible, berkas, onClose }: any) => {
   if (!visible || !berkas) return null;
@@ -356,7 +357,23 @@ const BerkasScreen = ({ navigation, route }: any) => {
         <Text className="text-gray-800 font-bold text-lg mb-4">Berkas Tersimpan</Text>
 
         {loading ? (
-           <ActivityIndicator color="#2563eb" className="mt-4" />
+           <View className="gap-3">
+              {[1,2,3].map(i => (
+                 <View key={i} className="flex-row items-center justify-between bg-white p-4 rounded-2xl mb-3 shadow-sm border border-gray-100">
+                    <View className="flex-row items-center flex-1 mr-2">
+                       <Skeleton width={44} height={44} borderRadius={12} style={{ marginRight: 12 }} />
+                       <View>
+                          <Skeleton width={120} height={14} style={{ marginBottom: 6 }} />
+                          <Skeleton width={80} height={10} />
+                       </View>
+                    </View>
+                    <View className="flex-row gap-2">
+                       <Skeleton width={34} height={34} borderRadius={8} />
+                       <Skeleton width={34} height={34} borderRadius={8} />
+                    </View>
+                 </View>
+              ))}
+           </View>
         ) : berkasList.length > 0 ? (
           berkasList.map((berkas, index) => (
             <TouchableOpacity 

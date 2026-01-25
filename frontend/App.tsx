@@ -2,9 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityIndicator, View, Text, TouchableOpacity, StatusBar, Image } from 'react-native';
-import { WifiOff, RefreshCw, Server } from 'lucide-react-native';
-import axios from 'axios'; // Import axios langsung untuk tes Google
+import { ActivityIndicator, View, Text, TouchableOpacity, StatusBar, Image, Modal } from 'react-native';
+import { WifiOff, RefreshCw, GraduationCap, XCircle } from 'lucide-react-native';
 import './global.css';
 
 import api from './src/services/api';
@@ -15,29 +14,36 @@ import BerkasScreen from './src/screens/main/BerkasScreen';
 import StudentCardScreen from './src/screens/main/StudentCardScreen';
 import { getToken } from './src/services/auth';
 
-import { API_URL } from '@env';
+import { API_URL, MAIN_APP_URL } from '@env';
 
 const Stack = createNativeStackNavigator();
 
 function App() {
-  const [status, setStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  // Status: 'checking' (splash screen) or 'connected' (main app)
+  // Error handling is now done via a popup modal on top of 'checking'
+  const [status, setStatus] = useState<'checking' | 'connected'>('checking');
   const [initialRoute, setInitialRoute] = useState('Login');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [schoolData, setSchoolData] = useState(null); // Data sekolah untuk LoginScreen
+  
+  // Error Modal State
+  const [isErrorVisible, setIsErrorVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const LOGO_URL = `${MAIN_APP_URL || 'https://simak.smakniscjr.sch.id'}/storage/logos/q3kO53UObFOXLV7d2dmYZIz8IhPRUE2CEkNHuLc5.png`;
 
   const initializeApp = useCallback(async () => {
     setStatus('checking');
-    setErrorMsg('');
+    setIsErrorVisible(false); // Hide error modal when retrying
 
     try {
-      console.log('Current API_URL:', API_URL); // Verify env var
-      // DIAGNOSTIC STEP: Cek koneksi ke Server Sekolah langsung
-      console.log('Checking connection to School Server...');
+      console.log('Checking connection...');
       
-      // Menggunakan endpoint /sekolah sebagai health check
-      await api.get('/sekolah', { timeout: 10000 });
-      console.log('School Server Connected.');
+      // Health check endpoint & Get School Data
+      const response = await api.get('/sekolah', { timeout: 10000 });
+      setSchoolData(response.data); // Simpan data sekolah
+      console.log('Connected.');
 
-      // 2. Jika koneksi OK, cek Token Login
+      // Check Token
       const token = await getToken();
       if (token) {
         setInitialRoute('MainTabs');
@@ -48,20 +54,20 @@ function App() {
       setStatus('connected');
     } catch (error: any) {
       console.log('Connection Error:', error);
-      let message = 'Gagal terhubung ke internet.';
-      let debugInfo = error.message;
-
+      
+      // User-friendly error messages
+      let message = 'Gagal terhubung ke server sekolah.';
       if (error.code === 'ECONNABORTED') {
-        message = 'Koneksi lambat (timeout). Cek internet Anda.';
+        message = 'Koneksi terlalu lambat. Silakan cek sinyal Anda.';
       } else if (error.message === 'Network Error') {
-        message = 'Tidak ada koneksi internet (Cek Kuota/WiFi).';
-      } else if (error.response) {
-         message = `Server Error: ${error.response.status}`;
-         debugInfo = JSON.stringify(error.response.data);
+        message = 'Tidak ada koneksi internet. Pastikan WiFi/Data aktif.';
+      } else if (error.response && error.response.status >= 500) {
+         message = 'Server sekolah sedang dalam perbaikan.';
       }
 
-      setErrorMsg(`${message}\n\nDebug: ${debugInfo}\nTarget: google.com`);
-      setStatus('error');
+      setErrorMessage(message);
+      setIsErrorVisible(true); // Show modal instead of changing screen
+      // Note: We stay in 'checking' status to keep the Splash Screen visible
     }
   }, []);
 
@@ -69,58 +75,88 @@ function App() {
     initializeApp();
   }, [initializeApp]);
 
-  // --- TAMPILAN: LOADING CHECK ---
+  // --- SPLASH SCREEN & ERROR MODAL ---
   if (status === 'checking') {
     return (
-      <View className="flex-1 bg-blue-600 justify-center items-center p-6">
+      <View className="flex-1 bg-blue-600 justify-center items-center px-6">
         <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-        <View className="bg-white p-5 rounded-full mb-6 shadow-lg shadow-blue-900/30">
-          <ActivityIndicator size="large" color="#2563eb" />
-        </View>
-        <Text className="text-white font-bold text-lg mb-2">Menghubungkan...</Text>
-        <Text className="text-blue-100 text-sm text-center">
-          Sedang memeriksa koneksi ke server sekolah.
-        </Text>
-      </View>
-    );
-  }
-
-  // --- TAMPILAN: ERROR KONEKSI ---
-  if (status === 'error') {
-    return (
-      <View className="flex-1 bg-slate-50 justify-center items-center p-8">
-        <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         
-        <View className="w-40 h-40 bg-red-50 rounded-full items-center justify-center mb-8 border border-red-100">
-          <WifiOff size={64} color="#ef4444" />
+        {/* === SPLASH SCREEN CONTENT === */}
+        <View className="items-center justify-center w-full">
+          {/* Logo Container */}
+          <View className="bg-white p-6 rounded-full shadow-lg shadow-blue-900/50 mb-6">
+             <Image 
+                source={{ uri: LOGO_URL }}
+                style={{ width: 80, height: 80 }}
+                resizeMode="contain"
+             />
+          </View>
+          
+          {/* Title */}
+          <View className="items-center">
+            <Text className="text-white font-extrabold text-5xl tracking-[4px] text-center">
+              SIMAK
+            </Text>
+            <View className="h-1 w-12 bg-white/30 rounded-full my-3" />
+            <Text className="text-blue-50 text-sm font-semibold tracking-[1px] text-center uppercase px-4">
+              Sistem Informasi Manajemen Akademik
+            </Text>
+          </View>
         </View>
 
-        <Text className="text-slate-800 font-black text-2xl mb-3 text-center">
-          Koneksi Bermasalah
-        </Text>
-        
-        <Text className="text-slate-500 text-center leading-6 mb-10 px-4">
-          {errorMsg || 'Aplikasi tidak dapat menghubungi server. Pastikan internet Anda aktif dan stabil.'}
-        </Text>
+        {/* Loading Indicator (Hidden if Error Modal is visible to reduce noise, or keep it) */}
+        {!isErrorVisible && (
+          <View className="absolute bottom-16 items-center w-full">
+            <ActivityIndicator size="large" color="white" className="mb-4" />
+            <Text className="text-blue-50 text-xs font-medium tracking-wider uppercase opacity-80">
+              Memuat Data...
+            </Text>
+          </View>
+        )}
 
-        <TouchableOpacity 
-          onPress={initializeApp}
-          className="bg-blue-600 w-full py-4 rounded-2xl flex-row justify-center items-center shadow-lg shadow-blue-200"
-          activeOpacity={0.8}
+        {/* === ERROR MODAL POPUP === */}
+        <Modal
+          animationType="fade"
+          transparent={true}
+          visible={isErrorVisible}
+          onRequestClose={() => {}} // Prevent hardware back button closing it without action
         >
-          <RefreshCw size={20} color="white" />
-          <Text className="text-white font-bold text-lg ml-2">Coba Lagi</Text>
-        </TouchableOpacity>
+          <View className="flex-1 justify-center items-center bg-black/50 px-6">
+            <View className="bg-white w-full max-w-sm rounded-3xl p-6 items-center shadow-2xl">
+              
+              {/* Icon Error */}
+              <View className="bg-red-50 p-4 rounded-full mb-4">
+                <WifiOff size={32} color="#ef4444" />
+              </View>
 
-        <View className="mt-8 flex-row items-center">
-           <Server size={14} color="#94a3b8" />
-           <Text className="text-slate-400 text-xs ml-2">Server: simak.smakniscjr.sch.id</Text>
-        </View>
+              {/* Title */}
+              <Text className="text-slate-800 font-bold text-xl mb-2 text-center">
+                Gagal Terhubung
+              </Text>
+
+              {/* Message */}
+              <Text className="text-slate-500 text-center text-sm leading-5 mb-6 px-2">
+                {errorMessage}
+              </Text>
+
+              {/* Action Button */}
+              <TouchableOpacity 
+                onPress={initializeApp}
+                className="bg-blue-600 w-full py-3.5 rounded-xl flex-row justify-center items-center active:bg-blue-700"
+              >
+                <RefreshCw size={18} color="white" className="mr-2" />
+                <Text className="text-white font-bold text-base">Coba Lagi</Text>
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        </Modal>
+
       </View>
     );
   }
 
-  // --- TAMPILAN: APLIKASI UTAMA ---
+  // --- MAIN APP ---
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -128,7 +164,7 @@ function App() {
           initialRouteName={initialRoute}
           screenOptions={{ headerShown: false }}
         >
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} initialParams={{ schoolData }} />
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
           <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="BerkasSaya" component={BerkasScreen} options={{ animation: 'slide_from_right' }} />

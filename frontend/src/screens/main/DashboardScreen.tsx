@@ -7,6 +7,8 @@ import api from '../../services/api';
 import {
   Bell, Calendar, CheckCircle, Clock, BookOpen, ChevronRight, User, FileText, CreditCard, XCircle, Thermometer
 } from 'lucide-react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import Skeleton from '../../components/Skeleton';
 
 const { width } = Dimensions.get('window');
 
@@ -69,9 +71,80 @@ const DashboardScreen = ({ navigation }: any) => {
 
   if (loading && !user) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
+      <SafeAreaView className="flex-1 bg-slate-50">
+         <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+         
+         {/* Header Skeleton */}
+         <View className="flex-row items-center px-6 py-5 gap-4">
+            <Skeleton variant="circle" width={48} height={48} />
+            <View className="flex-1">
+               <Skeleton width={100} height={14} style={{ marginBottom: 6 }} />
+               <Skeleton width={150} height={18} />
+            </View>
+            <Skeleton variant="circle" width={44} height={44} />
+         </View>
+  
+         {/* Banner Skeleton */}
+         <View className="px-6 mt-4 mb-8">
+            <Skeleton width="100%" height={180} borderRadius={24} />
+         </View>
+  
+         {/* Menu Grid Skeleton */}
+         <View className="px-6 mb-8">
+            <Skeleton width={120} height={20} style={{ marginBottom: 16 }} />
+            <View className="flex-row justify-between">
+               {[1,2,3,4].map(i => (
+                  <View key={i} className="items-center gap-2">
+                     <Skeleton width={64} height={64} borderRadius={20} />
+                     <Skeleton width={50} height={12} />
+                  </View>
+               ))}
+            </View>
+         </View>
+  
+         {/* Jadwal Skeleton */}
+         <View className="px-6 mb-8">
+            <View className="flex-row justify-between items-center mb-4">
+               <Skeleton width={140} height={20} />
+               <Skeleton width={80} height={24} borderRadius={20} />
+            </View>
+            <View className="gap-4">
+               {[1,2].map(i => (
+                  <View key={i} className="flex-row bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden items-center">
+                     {/* Color Bar Placeholder */}
+                     <View className="absolute left-0 top-0 bottom-0 w-1.5 bg-slate-200" />
+                     
+                     {/* Time Box Skeleton */}
+                     <Skeleton width={70} height={50} borderRadius={12} style={{ marginLeft: 12, marginRight: 16 }} />
+                     
+                     {/* Text Content Skeleton */}
+                     <View className="flex-1 gap-2">
+                        <Skeleton width="80%" height={16} />
+                        <Skeleton width="50%" height={12} />
+                     </View>
+                  </View>
+               ))}
+            </View>
+         </View>
+
+         {/* Pengumuman Skeleton */}
+         <View className="pl-6 mb-4">
+            <Skeleton width={160} height={20} style={{ marginBottom: 16 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pr-6">
+               {[1,2].map(i => (
+                  <View key={i} className="w-80 bg-white border border-slate-100 shadow-sm p-5 rounded-3xl mr-4">
+                     <View className="flex-row justify-between items-start mb-3">
+                        <Skeleton width={70} height={24} borderRadius={20} />
+                        <Skeleton width={80} height={12} />
+                     </View>
+                     <Skeleton width="90%" height={20} style={{ marginBottom: 8 }} />
+                     <Skeleton width="100%" height={12} style={{ marginBottom: 4 }} />
+                     <Skeleton width="60%" height={12} />
+                  </View>
+               ))}
+            </ScrollView>
+         </View>
+      </SafeAreaView>
     );
   }
 
@@ -107,7 +180,8 @@ const DashboardScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <Animated.ScrollView 
+        entering={FadeIn.duration(600)}
         className="flex-1" 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -236,7 +310,7 @@ const DashboardScreen = ({ navigation }: any) => {
           </ScrollView>
         </View>
 
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 };
