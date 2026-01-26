@@ -7,6 +7,8 @@ import ImageCropPicker from 'react-native-image-crop-picker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import api from '../../services/api';
 import { MAIN_APP_URL } from '@env';
+import LinearGradient from 'react-native-linear-gradient';
+import LottieView from 'lottie-react-native';
 import Skeleton from '../../components/Skeleton';
 
 const PreviewModal = ({ visible, berkas, onClose }: any) => {
@@ -310,16 +312,21 @@ const BerkasScreen = ({ navigation, route }: any) => {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-gray-50">
+      <LinearGradient 
+        colors={['#3b82f6', '#1d4ed8']} 
+        start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+        style={{ borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
+        className="flex-row items-center justify-between px-6 py-4 pt-4 shadow-lg mb-2"
+      >
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
-          className="w-10 h-10 rounded-2xl bg-gray-50 items-center justify-center border border-gray-100"
+          className="w-10 h-10 rounded-2xl bg-white/20 items-center justify-center border border-white/30 backdrop-blur-md"
         >
-          <ChevronLeft size={24} color="#1e293b" />
+          <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
-        <Text className="text-xl font-black text-gray-800 tracking-tight">Dokumen Saya</Text>
+        <Text className="text-xl font-black text-white tracking-tight">Dokumen Saya</Text>
         <View className="w-10" /> 
-      </View>
+      </LinearGradient>
 
       <ScrollView className="flex-1 p-6" showsVerticalScrollIndicator={false}>
         
@@ -405,8 +412,15 @@ const BerkasScreen = ({ navigation, route }: any) => {
             </TouchableOpacity>
           ))
         ) : (
-          <View className="items-center py-10">
-            <Text className="text-gray-400">Belum ada berkas yang diupload.</Text>
+          <View className="items-center py-10 opacity-80">
+            <LottieView
+              source={require('../../assets/animations/No-Data.json')}
+              autoPlay
+              loop
+              style={{ width: 200, height: 200 }}
+            />
+            <Text className="text-slate-500 font-bold text-lg -mt-4">Belum Ada Dokumen</Text>
+            <Text className="text-slate-400 text-sm">Upload berkas penting Anda di sini.</Text>
           </View>
         )}
 

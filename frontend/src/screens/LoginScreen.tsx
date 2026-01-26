@@ -6,7 +6,8 @@ import { MAIN_APP_URL } from '@env';
 import { User, Lock, Eye, EyeOff, School, KeyRound, Phone, X } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton'; 
-import Toast from '../components/Toast'; // Import Custom Toast
+import Toast from '../components/Toast'; 
+import LinearGradient from 'react-native-linear-gradient';
 
 const LoginScreen = ({ navigation, route }: any) => {
   const [username, setUsername] = useState('');
@@ -97,9 +98,12 @@ const LoginScreen = ({ navigation, route }: any) => {
           showsVerticalScrollIndicator={false}
         >
           
-          {/* Background Design */}
-          <View className="absolute top-0 w-full h-[45%] bg-blue-600 rounded-b-[50px] shadow-lg" />
-          
+                  {/* Background Design - Gradient */}
+                  <LinearGradient 
+                    colors={['#3b82f6', '#1e40af']} 
+                    start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+                    style={{ position: 'absolute', top: 0, width: '100%', height: '45%', borderBottomLeftRadius: 50, borderBottomRightRadius: 50 }}
+                  />          
           <View className="flex-1 px-6 py-6 justify-between min-h-[600px]">
             
             {/* Top Spacer & Logo */}

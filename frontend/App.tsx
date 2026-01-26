@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityIndicator, View, Text, TouchableOpacity, StatusBar, Image, Modal } from 'react-native';
 import { WifiOff, RefreshCw, GraduationCap, XCircle } from 'lucide-react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import './global.css';
 
 import api from './src/services/api';
@@ -13,7 +14,8 @@ import EditProfileScreen from './src/screens/main/EditProfileScreen';
 import BerkasScreen from './src/screens/main/BerkasScreen';
 import StudentCardScreen from './src/screens/main/StudentCardScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
-import AnnouncementsScreen from './src/screens/AnnouncementsScreen'; // New Import
+import AnnouncementsScreen from './src/screens/AnnouncementsScreen';
+import AnnouncementDetailScreen from './src/screens/AnnouncementDetailScreen'; // New
 import { getToken } from './src/services/auth';
 
 import { API_URL, MAIN_APP_URL } from '@env';
@@ -158,24 +160,27 @@ function App() {
     );
   }
 
-  // --- MAIN APP ---
+  // --- TAMPILAN: APLIKASI UTAMA ---
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator 
-          initialRouteName={initialRoute}
-          screenOptions={{ headerShown: false }}
-        >
-          <Stack.Screen name="Login" component={LoginScreen} initialParams={{ schoolData }} />
-          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="BerkasSaya" component={BerkasScreen} options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="KartuPelajar" component={StudentCardScreen} options={{ animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="Notifikasi" component={NotificationScreen} options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="Pengumuman" component={AnnouncementsScreen} options={{ animation: 'slide_from_right' }} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <Stack.Navigator 
+            initialRouteName={initialRoute}
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="BerkasSaya" component={BerkasScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="KartuPelajar" component={StudentCardScreen} options={{ animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="Notifikasi" component={NotificationScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="Pengumuman" component={AnnouncementsScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="DetailPengumuman" component={AnnouncementDetailScreen} options={{ animation: 'slide_from_right' }} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

@@ -5,6 +5,7 @@ import { Clock, User, Coffee, Flag, BookOpen, Heart, Info, CalendarDays, MapPin 
 import Animated, { FadeIn } from 'react-native-reanimated';
 import api from '../../services/api';
 import Skeleton from '../../components/Skeleton';
+import LottieView from 'lottie-react-native';
 
 const ScheduleScreen = () => {
   const [activeDay, setActiveDay] = useState('');
@@ -292,11 +293,16 @@ const ScheduleScreen = () => {
                 )}
              </View>
           ) : (
-            <View className="items-center py-24 px-8 opacity-60">
-              <Coffee size={56} color="#cbd5e1" strokeWidth={1.5} />
-              <Text className="text-slate-900 font-bold text-lg mt-6 mb-2">Hari Tenang</Text>
-              <Text className="text-slate-500 text-center text-sm px-6 leading-6">
-                Tidak ada jadwal pelajaran aktif untuk hari ini. Waktunya istirahat atau belajar mandiri.
+            <View className="items-center py-10 px-8">
+              <LottieView
+                source={require('../../assets/animations/No-Data.json')}
+                autoPlay
+                loop
+                style={{ width: 200, height: 200 }}
+              />
+              <Text className="text-slate-800 font-bold text-lg -mt-4 text-center">Tidak Ada Jadwal</Text>
+              <Text className="text-slate-400 text-center text-sm leading-6">
+                Hari {activeDay} tidak ada kegiatan.
               </Text>
             </View>
           )}

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions } from 'react-native';
 import { CheckCircle, XCircle, AlertCircle, Info } from 'lucide-react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import LottieView from 'lottie-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -59,8 +60,17 @@ const StatusModal = ({ visible, type, title, message, onClose, buttonText = 'Men
           className="bg-white w-[85%] rounded-[40px] p-8 items-center shadow-2xl"
         >
           {/* Animated Icon Container */}
-          <View className={`${config.bg} w-24 h-24 rounded-full items-center justify-center mb-6`}>
-             <Icon size={48} color={config.color} strokeWidth={2.5} />
+          <View className={`${config.bg} w-28 h-28 rounded-full items-center justify-center mb-6 overflow-hidden`}>
+             {type === 'success' ? (
+                <LottieView
+                  source={require('../assets/animations/success.json')}
+                  autoPlay
+                  loop={false}
+                  style={{ width: 140, height: 140 }}
+                />
+             ) : (
+                <Icon size={48} color={config.color} strokeWidth={2.5} />
+             )}
           </View>
 
           {/* Text Content */}

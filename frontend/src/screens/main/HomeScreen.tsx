@@ -13,6 +13,7 @@ import Skeleton from '../../components/Skeleton';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { getToken } from '../../services/auth';
 import { Alert, Platform } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import StatusModal from '../../components/StatusModal';
 
 const HomeScreen = ({ navigation }: any) => {
@@ -147,7 +148,7 @@ const HomeScreen = ({ navigation }: any) => {
     primarySoft: isFemale ? 'bg-rose-50' : 'bg-blue-50',
     primaryBorder: isFemale ? 'border-rose-100' : 'border-blue-100',
     primaryText: isFemale ? 'text-rose-600' : 'text-blue-600',
-    banner: isFemale ? 'bg-rose-600' : 'bg-blue-600',
+    gradient: isFemale ? ['#f43f5e', '#be123c'] : ['#3b82f6', '#1d4ed8'],
     tabActive: isFemale ? 'bg-rose-500/20 border-rose-500/30' : 'bg-white/20 border-white/30'
   };
 
@@ -196,7 +197,12 @@ const HomeScreen = ({ navigation }: any) => {
         <Animated.View entering={FadeIn.duration(600)}>
         
         {/* Modern Header Design */}
-        <View className={`relative ${theme.banner} pb-20 rounded-b-[48px] shadow-2xl`}>
+        <LinearGradient 
+          colors={theme.gradient}
+          start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+          style={{ borderBottomLeftRadius: 48, borderBottomRightRadius: 48 }}
+          className="relative pb-20 shadow-2xl"
+        >
           <View className="absolute top-0 right-0 p-10 opacity-10">
              <Award size={180} color="white" />
           </View>
@@ -238,7 +244,7 @@ const HomeScreen = ({ navigation }: any) => {
                </Text>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Content Container */}
         <View className="px-5 -mt-14">

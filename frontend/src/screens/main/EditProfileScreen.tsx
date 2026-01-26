@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, PanResponder, Animated, Dimensions, InteractionManager, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Dimensions, InteractionManager, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Save, Info, Lock, User, MapPin, Heart, Users, AlertCircle, Phone, BookOpen, Truck, FileText, Camera, CheckCircle, XCircle, Award, Calendar } from 'lucide-react-native';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { BottomSheetModal, BottomSheetModalProvider, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { MAIN_APP_URL } from '@env';
 import api from '../../services/api';
 import Skeleton from '../../components/Skeleton';
@@ -20,7 +21,7 @@ const lockedColumns = [
   'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
   'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
   'alamat_jalan', 
-  'no_hp_akun', 'nomor_telepon_rumah', 'no_wa',
+  'no_hp_akun', 'nomor_telepon_rumah',
   'nik' 
 ];
 
@@ -69,47 +70,37 @@ const InputField = ({ label, fieldKey, icon: Icon, keyboardType = 'default', pla
   );
 };
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-const DraggableModal = ({ visible, onClose, title, children }: any) => {
-  const [panY] = useState(new Animated.Value(0));
-  const resetPosition = Animated.timing(panY, { toValue: 0, duration: 250, useNativeDriver: true });
-  
-  const panResponder = useState(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 0,
-      onPanResponderMove: Animated.event([null, { dy: panY }], { useNativeDriver: false }),
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 150 || gestureState.vy > 1.5) onClose();
-        else resetPosition.start();
-      },
-    })
-  )[0];
-
-  React.useEffect(() => { if (visible) panY.setValue(0); }, [visible]);
-  if (!visible) return null;
+const CustomBottomSheet = React.forwardRef(({ title, children, snapPoints = ['50%', '75%'] }: any, ref: any) => {
+  const renderBackdrop = useCallback(
+    (props: any) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />,
+    []
+  );
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View className="flex-1 bg-black/50 justify-end">
-        <TouchableOpacity style={{ position: 'absolute', inset: 0 }} onPress={onClose} activeOpacity={1} />
-        <Animated.View 
-          style={{ transform: [{ translateY: panY.interpolate({ inputRange: [0, SCREEN_HEIGHT], outputRange: [0, SCREEN_HEIGHT], extrapolate: 'clamp' }) }] }}
-          className="bg-white rounded-t-[32px] p-6 pb-10 h-[65%]"
-        >
-          <View {...panResponder.panHandlers} className="w-full items-center pt-2 pb-6"><View className="w-12 h-1.5 bg-slate-200 rounded-full" /></View>
-          <Text className="text-xl font-black text-slate-800 mb-6 text-center tracking-tight">{title}</Text>
+    <BottomSheetModal
+      ref={ref}
+      index={0}
+      snapPoints={snapPoints}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{ borderRadius: 32 }}
+      handleIndicatorStyle={{ backgroundColor: '#cbd5e1', width: 50 }}
+    >
+      <View className="flex-1 px-6 pb-8">
+        <Text className="text-xl font-black text-slate-800 mb-6 text-center tracking-tight border-b border-slate-100 pb-4">{title}</Text>
+        <BottomSheetScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
           {children}
-        </Animated.View>
+        </BottomSheetScrollView>
       </View>
-    </Modal>
+    </BottomSheetModal>
   );
-};
+});
 
 const SelectField = ({ label, fieldKey, icon: Icon, value, options, onSelect }: any) => {
-  const [modalVisible, setModalVisible] = useState(false);
+  const bottomSheetRef = useRef<BottomSheetModal>(null);
   const isLocked = lockedColumns.includes(fieldKey);
+
+  const handlePresentModal = () => bottomSheetRef.current?.present();
+  const handleCloseModal = () => bottomSheetRef.current?.dismiss();
 
   return (
     <View className="mb-6">
@@ -124,7 +115,7 @@ const SelectField = ({ label, fieldKey, icon: Icon, value, options, onSelect }: 
       </View>
       
       <TouchableOpacity 
-        onPress={() => setModalVisible(true)}
+        onPress={handlePresentModal}
         className={`flex-row items-center rounded-2xl px-4 border transition-all 
         ${isLocked ? 'bg-amber-50/20 border-amber-200' : 'bg-white border-slate-200 shadow-sm'}`}
         style={{ height: 56 }}
@@ -136,39 +127,37 @@ const SelectField = ({ label, fieldKey, icon: Icon, value, options, onSelect }: 
         <ChevronLeft size={20} color="#94a3b8" style={{ transform: [{ rotate: '-90deg' }] }} />
       </TouchableOpacity>
 
-      <DraggableModal visible={modalVisible} onClose={() => setModalVisible(false)} title={`Pilih ${label}`}>
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <CustomBottomSheet ref={bottomSheetRef} title={`Pilih ${label}`}>
           {options.map((option: string) => (
             <TouchableOpacity 
               key={option}
-              onPress={() => onSelect(fieldKey, option)}
+              onPress={() => {
+                onSelect(fieldKey, option);
+                handleCloseModal();
+              }}
               className={`py-4 px-6 rounded-2xl mb-2 flex-row justify-between items-center ${value === option ? 'bg-blue-50 border border-blue-200' : 'bg-slate-50 border border-transparent'}`}
             >
               <Text className={`text-base ${value === option ? 'text-blue-700 font-bold' : 'text-slate-700 font-medium'}`}>{option}</Text>
               {value === option && <CheckCircle size={20} color="#2563eb" />}
             </TouchableOpacity>
           ))}
-        </ScrollView>
-        <TouchableOpacity onPress={() => setModalVisible(false)} className="mt-4 py-4 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
-          <Text className="text-center text-white font-bold text-lg">Selesai</Text>
-        </TouchableOpacity>
-      </DraggableModal>
+          <TouchableOpacity onPress={handleCloseModal} className="mt-4 py-4 bg-slate-100 rounded-2xl">
+            <Text className="text-center text-slate-500 font-bold text-lg">Tutup</Text>
+          </TouchableOpacity>
+      </CustomBottomSheet>
     </View>
   );
 };
 
-// DateField using @react-native-community/datetimepicker
 const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
   const [show, setShow] = useState(false);
   const isLocked = lockedColumns.includes(fieldKey);
 
-  // Parse existing date or default
   const dateValue = value ? new Date(value) : new Date();
 
   const handleChange = (event: any, selectedDate?: Date) => {
     setShow(false);
     if (selectedDate) {
-      // Format YYYY-MM-DD
       const year = selectedDate.getFullYear();
       const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
       const day = String(selectedDate.getDate()).padStart(2, '0');
@@ -204,7 +193,7 @@ const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleChange}
-          maximumDate={new Date()} // Tidak boleh masa depan
+          maximumDate={new Date()} 
         />
       )}
     </View>
@@ -389,6 +378,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   }
 
   return (
+    <BottomSheetModalProvider>
     <SafeAreaView className="flex-1 bg-slate-50 relative">
       <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-slate-50 z-10">
         <TouchableOpacity onPress={() => navigation.goBack()} className="w-10 h-10 rounded-xl bg-slate-50 items-center justify-center border border-slate-100">
@@ -410,8 +400,8 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                 <View className="w-32 h-32 rounded-full bg-slate-100 border-4 border-white shadow-xl shadow-slate-200 items-center justify-center overflow-hidden">
                     {currentPhotoUrl ? (
                         <Image 
-                          source={{ uri: currentPhotoUrl }}
-                          className="w-full h-full"
+                          source={{ uri: currentPhotoUrl }} 
+                          className="w-full h-full" 
                           resizeMode="cover"
                         />
                     ) : (
@@ -536,25 +526,25 @@ const EditProfileScreen = ({ navigation, route }: any) => {
               <>
                 <FormSection title="Data Ayah" icon={Users}>
                   <InputField label="Nama Ayah" fieldKey="nama_ayah" icon={User} value={formData.nama_ayah} onChangeText={handleChange} />
-                  <InputField label="Tahun Lahir" fieldKey="tahun_lahir_ayah" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_ayah} onChangeText={handleChange} />
+                  <DateField label="Tgl Lahir Ayah" fieldKey="tahun_lahir_ayah" value={formData.tahun_lahir_ayah} onChangeText={handleChange} />
                   <InputField label="Pekerjaan" fieldKey="pekerjaan_ayah_id_str" icon={Info} value={formData.pekerjaan_ayah_id_str} onChangeText={handleChange} />
-                  <InputField label="Penghasilan" fieldKey="penghasilan_ayah_id_str" icon={Heart} value={formData.penghasilan_ayah_id_str} onChangeText={handleChange} />
+                  <SelectField label="Penghasilan" fieldKey="penghasilan_ayah_id_str" icon={Heart} value={formData.penghasilan_ayah_id_str} options={['Kurang dari Rp. 500,000', 'Rp. 500,000 - Rp. 999,999', 'Rp. 1,000,000 - Rp. 1,999,999', 'Rp. 2,000,000 - Rp. 4,999,999', 'Rp. 5,000,000 - Rp. 20,000,000', 'Lebih dari Rp. 20,000,000', 'Tidak Berpenghasilan']} onSelect={handleChange} />
                   <InputField label="WhatsApp Ayah" fieldKey="no_wa_ayah" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_ayah} onChangeText={handleChange} />
                 </FormSection>
 
                 <FormSection title="Data Ibu" icon={Users}>
                   <InputField label="Nama Ibu" fieldKey="nama_ibu" icon={User} value={formData.nama_ibu} onChangeText={handleChange} />
-                  <InputField label="Tahun Lahir" fieldKey="tahun_lahir_ibu" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_ibu} onChangeText={handleChange} />
+                  <DateField label="Tgl Lahir Ibu" fieldKey="tahun_lahir_ibu" value={formData.tahun_lahir_ibu} onChangeText={handleChange} />
                   <InputField label="Pekerjaan" fieldKey="pekerjaan_ibu_id_str" icon={Info} value={formData.pekerjaan_ibu_id_str} onChangeText={handleChange} />
-                  <InputField label="Penghasilan" fieldKey="penghasilan_ibu_id_str" icon={Heart} value={formData.penghasilan_ibu_id_str} onChangeText={handleChange} />
+                  <SelectField label="Penghasilan" fieldKey="penghasilan_ibu_id_str" icon={Heart} value={formData.penghasilan_ibu_id_str} options={['Kurang dari Rp. 500,000', 'Rp. 500,000 - Rp. 999,999', 'Rp. 1,000,000 - Rp. 1,999,999', 'Rp. 2,000,000 - Rp. 4,999,999', 'Rp. 5,000,000 - Rp. 20,000,000', 'Lebih dari Rp. 20,000,000', 'Tidak Berpenghasilan']} onSelect={handleChange} />
                   <InputField label="WhatsApp Ibu" fieldKey="no_wa_ibu" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_ibu} onChangeText={handleChange} />
                 </FormSection>
 
                 <FormSection title="Data Wali" icon={Users}>
                   <InputField label="Nama Wali" fieldKey="nama_wali" icon={User} value={formData.nama_wali} onChangeText={handleChange} />
-                  <InputField label="Tahun Lahir" fieldKey="tahun_lahir_wali" icon={Info} keyboardType="numeric" value={formData.tahun_lahir_wali} onChangeText={handleChange} />
+                  <DateField label="Tgl Lahir Wali" fieldKey="tahun_lahir_wali" value={formData.tahun_lahir_wali} onChangeText={handleChange} />
                   <InputField label="Pekerjaan" fieldKey="pekerjaan_wali_id_str" icon={Info} value={formData.pekerjaan_wali_id_str} onChangeText={handleChange} />
-                  <InputField label="Penghasilan" fieldKey="penghasilan_wali_id_str" icon={Heart} value={formData.penghasilan_wali_id_str} onChangeText={handleChange} />
+                  <SelectField label="Penghasilan" fieldKey="penghasilan_wali_id_str" icon={Heart} value={formData.penghasilan_wali_id_str} options={['Kurang dari Rp. 500,000', 'Rp. 500,000 - Rp. 999,999', 'Rp. 1,000,000 - Rp. 1,999,999', 'Rp. 2,000,000 - Rp. 4,999,999', 'Rp. 5,000,000 - Rp. 20,000,000', 'Lebih dari Rp. 20,000,000', 'Tidak Berpenghasilan']} onSelect={handleChange} />
                   <InputField label="WhatsApp Wali" fieldKey="no_wa_wali" icon={Phone} keyboardType="phone-pad" value={formData.no_wa_wali} onChangeText={handleChange} />
                 </FormSection>
               </>
@@ -591,6 +581,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
         onClose={alertConfig.onClose}
       />
     </SafeAreaView>
+    </BottomSheetModalProvider>
   );
 };
 

@@ -5,6 +5,7 @@ import { ChevronLeft, Bell, CheckCircle, XCircle, Clock, Info, Calendar } from '
 import api from '../services/api';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import LottieView from 'lottie-react-native';
 
 const NotificationScreen = ({ navigation }: any) => {
   const [sections, setSections] = useState<any[]>([]);
@@ -185,15 +186,17 @@ const NotificationScreen = ({ navigation }: any) => {
           renderSectionHeader={renderSectionHeader}
           contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          stickySectionHeadersEnabled={false}
           ListEmptyComponent={
-            <View className="items-center py-20 px-10 opacity-70">
-              <View className="bg-slate-50 p-8 rounded-full mb-6 border border-slate-100">
-                 <Bell size={64} color="#cbd5e1" />
-              </View>
-              <Text className="text-slate-800 font-bold text-xl mb-2 text-center">Belum Ada Kabar</Text>
+            <View className="items-center py-10 px-10 opacity-90">
+              <LottieView
+                source={require('../assets/animations/No-Data.json')}
+                autoPlay
+                loop
+                style={{ width: 200, height: 200 }}
+              />
+              <Text className="text-slate-800 font-bold text-xl -mt-4 text-center">Belum Ada Kabar</Text>
               <Text className="text-slate-400 text-center text-sm leading-6">
-                Saat ini belum ada notifikasi baru untuk Anda. Aktivitas pengajuan akan muncul di sini.
+                Notifikasi persetujuan atau informasi penting dari sekolah akan muncul di sini.
               </Text>
             </View>
           }

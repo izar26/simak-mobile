@@ -22,11 +22,9 @@ class SiswaController extends Controller
         'tinggi_badan', 'berat_badan',
         'nama_ayah', 'nama_ibu', 'nama_wali',
         'pekerjaan_ayah_id_str', 'pekerjaan_ibu_id_str', 'pekerjaan_wali_id_str',
-        'tahun_lahir_ayah', 'tahun_lahir_ibu', 'tahun_lahir_wali',
         'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
-        'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
         'alamat_jalan',
-        'nik', 'nomor_telepon_rumah', 'no_wa', 'no_hp_akun'
+        'nik', 'nomor_telepon_rumah', 'no_hp_akun'
     ];
 
     public function uploadBerkas(Request $request)

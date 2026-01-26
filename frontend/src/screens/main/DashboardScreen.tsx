@@ -11,6 +11,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import Skeleton from '../../components/Skeleton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import LottieView from 'lottie-react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -217,11 +219,22 @@ const DashboardScreen = ({ navigation }: any) => {
         
         {/* Banner Akademik */}
         <View className="mx-6 mt-4 mb-8">
-          <View className="bg-blue-600 rounded-3xl p-6 shadow-xl shadow-blue-200 overflow-hidden relative min-h-[180px] justify-between">
-            {/* Dekorasi Background */}
-            <View className="absolute -right-6 -top-10 bg-blue-500 w-48 h-48 rounded-full opacity-50" />
-            <View className="absolute -left-10 -bottom-10 bg-blue-400 w-40 h-40 rounded-full opacity-40" />
-            <View className="absolute right-10 bottom-10 bg-white w-10 h-10 rounded-full opacity-10" />
+          <LinearGradient 
+            colors={['#3b82f6', '#1d4ed8']} 
+            start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+            style={{ borderRadius: 24 }}
+            className="p-6 shadow-xl shadow-blue-200 overflow-hidden relative min-h-[180px] justify-between"
+          >
+            {/* Dekorasi Lottie */}
+            <View className="absolute -right-4 -bottom-4 w-48 h-48 opacity-20">
+               <LottieView
+                  source={require('../../assets/animations/Back to School.json')}
+                  autoPlay
+                  loop
+                  style={{ width: '100%', height: '100%' }}
+               />
+            </View>
+            <View className="absolute -left-10 -bottom-10 bg-blue-400 w-40 h-40 rounded-full opacity-30" />
             
             <View>
               <Text className="text-blue-100 font-medium text-xs mb-1 tracking-wider uppercase">Semester Aktif</Text>
@@ -238,7 +251,7 @@ const DashboardScreen = ({ navigation }: any) => {
                 </View>
               ))}
             </View>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Menu Cepat (Quick Access) */}
@@ -283,45 +296,50 @@ const DashboardScreen = ({ navigation }: any) => {
             </TouchableOpacity>
           </View>
           
-          <View className="gap-4">
-            {jadwal.length > 0 ? (
-              jadwal.map((item, i) => (
-                <View key={i} className="flex-row bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden">
+          {jadwal.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6" contentContainerStyle={{ paddingRight: 24 }}>
+              {jadwal.map((item, i) => (
+                <View key={i} className="mr-4 w-64 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden flex-col justify-between h-32">
                   <View className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                    item.status === 'Berlangsung' ? 'bg-green-500' : 'bg-blue-500'
+                    item.is_non_kbm ? 'bg-orange-400' : (item.status === 'Berlangsung' ? 'bg-green-500' : 'bg-blue-500')
                   }`} />
                   
-                  <View className="pl-3 flex-1 flex-row items-center">
-                    <View className="bg-slate-50 px-3 py-2 rounded-xl mr-4 items-center min-w-[70px]">
-                      <Text className="text-slate-800 font-bold text-sm">{item.jam.split(' - ')[0]}</Text>
-                      <Text className="text-slate-400 text-[10px] mt-0.5">{item.jam.split(' - ')[1]}</Text>
+                  <View className="pl-3 flex-row justify-between items-start">
+                    <View>
+                        <Text className="text-slate-400 text-xs font-bold mb-1">{item.jam}</Text>
+                        <Text className="text-slate-800 font-bold text-lg leading-6 pr-2" numberOfLines={2}>{item.mapel}</Text>
                     </View>
-                    
-                    <View className="flex-1">
-                      <Text className="text-slate-800 font-bold text-base mb-1" numberOfLines={1}>{item.mapel}</Text>
-                      <View className="flex-row items-center gap-1.5">
-                        <User size={12} color="#94a3b8" />
-                        <Text className="text-slate-500 text-xs flex-1" numberOfLines={1}>{item.guru}</Text>
-                      </View>
-                    </View>
-
                     {item.status === 'Berlangsung' && (
                       <View className="bg-green-100 px-2 py-1 rounded-lg">
                         <Text className="text-green-700 text-[10px] font-bold">LIVE</Text>
                       </View>
                     )}
                   </View>
+
+                  <View className="pl-3 mt-2">
+                    {!item.is_non_kbm ? (
+                        <View className="flex-row items-center gap-1.5 bg-slate-50 self-start px-2 py-1 rounded-md">
+                            <User size={12} color="#64748b" />
+                            <Text className="text-slate-500 text-xs font-medium" numberOfLines={1}>{item.guru}</Text>
+                        </View>
+                    ) : (
+                        <View className="flex-row items-center gap-1.5 bg-orange-50 self-start px-2 py-1 rounded-md">
+                            <Clock size={12} color="#f97316" />
+                            <Text className="text-orange-600 text-xs font-bold">Kegiatan</Text>
+                        </View>
+                    )}
+                  </View>
                 </View>
-              ))
-            ) : (
-              <View className="items-center py-10 bg-white rounded-3xl border border-dashed border-slate-200">
-                <View className="bg-slate-50 p-4 rounded-full mb-3">
-                  <Calendar size={32} color="#cbd5e1" />
-                </View>
-                <Text className="text-slate-400 text-sm font-medium">Tidak ada jadwal pelajaran hari ini</Text>
+              ))}
+            </ScrollView>
+          ) : (
+            <View className="items-center py-8 bg-white rounded-3xl border border-dashed border-slate-200">
+              <View className="bg-slate-50 p-3 rounded-full mb-2">
+                <Calendar size={24} color="#cbd5e1" />
               </View>
-            )}
-          </View>
+              <Text className="text-slate-400 text-sm font-medium">Tidak ada jadwal hari ini</Text>
+            </View>
+          )}
         </View>
 
         {/* Pengumuman Terbaru */}
@@ -335,7 +353,12 @@ const DashboardScreen = ({ navigation }: any) => {
           {pengumuman.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pr-6" contentContainerStyle={{ paddingRight: 24 }}>
               {pengumuman.map((item, i) => (
-                <View key={i} className="w-72 bg-white border border-slate-100 shadow-sm p-5 rounded-3xl mr-4">
+                <TouchableOpacity 
+                  key={i} 
+                  onPress={() => navigation.navigate('DetailPengumuman', { item })}
+                  activeOpacity={0.9}
+                  className="w-72 bg-white border border-slate-100 shadow-sm p-5 rounded-3xl mr-4"
+                >
                   <View className="flex-row justify-between items-start mb-3">
                     <View className={`px-3 py-1 rounded-full border ${
                       item.type === 'libur' ? 'bg-red-50 border-red-100' : 
@@ -360,7 +383,7 @@ const DashboardScreen = ({ navigation }: any) => {
                   <Text className="text-slate-400 text-xs mt-1 leading-4" numberOfLines={2}>
                     {item.desc || 'Klik untuk detail'}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (

@@ -5,6 +5,7 @@ import { ChevronLeft, Calendar, Info, FileText } from 'lucide-react-native';
 import api from '../services/api';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton';
+import LottieView from 'lottie-react-native';
 
 const AnnouncementsScreen = ({ navigation }: any) => {
   const [data, setData] = useState<any[]>([]);
@@ -49,21 +50,26 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     return (
       <Animated.View 
         entering={FadeInDown.delay(index * 100).duration(600)}
-        className="bg-white p-5 rounded-3xl mb-4 border border-slate-100 shadow-sm"
+        className="bg-white rounded-3xl mb-4 border border-slate-100 shadow-sm overflow-hidden"
       >
-        <View className="flex-row justify-between items-start mb-3">
-           <View className={`flex-row items-center px-3 py-1.5 rounded-full border ${badge.bg}`}>
-              <Icon size={12} color={badge.color.replace('text-', '').replace('-600', '#ea580c')} /> 
-              {/* Note: Color mapping simplistic, using theme classes is better */}
-              <Text className={`ml-1.5 text-[10px] font-bold ${badge.color}`}>{badge.label}</Text>
-           </View>
-           <Text className="text-slate-400 text-xs font-medium mt-1">
-              {new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-           </Text>
-        </View>
-        
-        <Text className="text-slate-800 font-bold text-lg mb-2 leading-6">{item.title}</Text>
-        <Text className="text-slate-500 text-sm leading-6">{item.desc}</Text>
+        <TouchableOpacity 
+           onPress={() => navigation.navigate('DetailPengumuman', { item })}
+           activeOpacity={0.7}
+           className="p-5"
+        >
+          <View className="flex-row justify-between items-start mb-3">
+             <View className={`flex-row items-center px-3 py-1.5 rounded-full border ${badge.bg}`}>
+                <Icon size={12} color={badge.color.replace('text-', '').replace('-600', '#ea580c')} /> 
+                <Text className={`ml-1.5 text-[10px] font-bold ${badge.color}`}>{badge.label}</Text>
+             </View>
+             <Text className="text-slate-400 text-xs font-medium mt-1">
+                {new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+             </Text>
+          </View>
+          
+          <Text className="text-slate-800 font-bold text-lg mb-2 leading-6">{item.title}</Text>
+          <Text className="text-slate-500 text-sm leading-6" numberOfLines={3}>{item.desc}</Text>
+        </TouchableOpacity>
       </Animated.View>
     );
   };
@@ -100,8 +106,15 @@ const AnnouncementsScreen = ({ navigation }: any) => {
           contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View className="items-center py-20">
-               <Text className="text-slate-400">Belum ada informasi terbaru.</Text>
+            <View className="items-center py-20 px-10 opacity-80">
+               <LottieView
+                  source={require('../assets/animations/No-Data.json')}
+                  autoPlay
+                  loop
+                  style={{ width: 200, height: 200 }}
+               />
+               <Text className="text-slate-800 font-bold text-lg -mt-4 text-center">Belum Ada Informasi</Text>
+               <Text className="text-slate-400 text-center text-sm leading-6">Tidak ada pengumuman atau berita terbaru dari sekolah saat ini.</Text>
             </View>
           }
         />
