@@ -310,7 +310,7 @@ const HomeScreen = ({ navigation }: any) => {
             ) : (
               <>
                 <Printer size={20} color="white" />
-                <Text className="text-white font-black ml-3 uppercase tracking-widest text-xs">Cetak Biodata (PDF)</Text>
+                <Text className="text-white font-black ml-3 uppercase tracking-widest text-xs">Unduh Biodata (PDF)</Text>
               </>
             )}
           </TouchableOpacity>
