@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Text, View, TouchableOpacity, Dimensions } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeOutUp, Layout } from 'react-native-reanimated';
 import { AlertCircle, CheckCircle, X } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -17,7 +17,7 @@ const Toast = ({ visible, message, type = 'error', onDismiss }: ToastProps) => {
     if (visible) {
       const timer = setTimeout(() => {
         onDismiss();
-      }, 3000); // Hilang otomatis setelah 3 detik
+      }, 3500);
       return () => clearTimeout(timer);
     }
   }, [visible]);
@@ -25,52 +25,60 @@ const Toast = ({ visible, message, type = 'error', onDismiss }: ToastProps) => {
   if (!visible) return null;
 
   const isError = type === 'error';
-  const Icon = isError ? AlertCircle : CheckCircle;
-  const bgClass = isError ? 'bg-red-50' : 'bg-green-50';
-  const borderClass = isError ? 'border-red-100' : 'border-green-100';
-  const textClass = isError ? 'text-red-600' : 'text-green-600';
-  const iconColor = isError ? '#dc2626' : '#16a34a';
+  
+  // Theme Gelo (Bouncy Pill)
+  const bgClass = isError ? 'bg-rose-600' : 'bg-emerald-600';
+  const iconColor = 'white';
 
   return (
     <Animated.View 
-      entering={FadeInUp.springify().damping(15)}
+      entering={FadeInUp.springify().damping(12).mass(0.8)}
       exiting={FadeOutUp}
+      layout={Layout.springify()}
       style={{
         position: 'absolute',
-        top: 60, // Jarak dari atas (status bar)
+        top: 60,
         left: 20,
         right: 20,
-        zIndex: 100, // Pastikan selalu di atas
-        alignItems: 'center'
+        zIndex: 9999, // Super Top
+        alignItems: 'center',
       }}
     >
       <TouchableOpacity 
         activeOpacity={0.9} 
         onPress={onDismiss}
-        className={`flex-row items-center px-4 py-3 rounded-2xl border shadow-sm ${bgClass} ${borderClass}`}
+        className={`flex-row items-center px-5 py-4 rounded-full shadow-2xl ${bgClass}`}
         style={{
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 5,
-            width: '100%'
+            shadowColor: isError ? "#e11d48" : "#059669",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.4,
+            shadowRadius: 12,
+            elevation: 8,
+            width: '100%',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)'
         }}
       >
-        <View className={`p-2 rounded-full mr-3 ${isError ? 'bg-red-100' : 'bg-green-100'}`}>
-            <Icon size={20} color={iconColor} />
+        <View className="bg-white/20 p-2 rounded-full mr-3">
+            {isError ? (
+                <AlertCircle size={20} color={iconColor} strokeWidth={3} />
+            ) : (
+                <CheckCircle size={20} color={iconColor} strokeWidth={3} />
+            )}
         </View>
         
         <View className="flex-1 mr-2">
-            <Text className={`font-bold text-sm ${textClass}`}>
-                {isError ? 'Terjadi Kesalahan' : 'Berhasil'}
+            <Text className="font-black text-white text-base tracking-tight mb-0.5">
+                {isError ? 'Oops!' : 'Berhasil!'}
             </Text>
-            <Text className="text-gray-600 text-xs mt-0.5 leading-4">
+            <Text className="text-white/90 text-xs font-medium leading-4">
                 {message}
             </Text>
         </View>
 
-        <X size={18} color="#9ca3af" />
+        <View className="bg-black/10 p-1.5 rounded-full">
+            <X size={14} color="white" strokeWidth={3} />
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );

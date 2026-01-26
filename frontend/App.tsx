@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityIndicator, View, Text, TouchableOpacity, StatusBar, Image, Modal } from 'react-native';
 import { WifiOff, RefreshCw, GraduationCap, XCircle } from 'lucide-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import LottieView from 'lottie-react-native';
 import './global.css';
 
 import api from './src/services/api';
@@ -79,46 +80,41 @@ function App() {
     initializeApp();
   }, [initializeApp]);
 
-  // --- SPLASH SCREEN & ERROR MODAL ---
+  // --- TAMPILAN: LOADING CHECK (SPLASH SCREEN) ---
   if (status === 'checking') {
     return (
       <View className="flex-1 bg-blue-600 justify-center items-center px-6">
         <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
         
-        {/* === SPLASH SCREEN CONTENT === */}
-        <View className="items-center justify-center w-full">
-          {/* Logo Container */}
-          <View className="bg-white p-6 rounded-full shadow-lg shadow-blue-900/50 mb-6">
-             <Image 
-                source={{ uri: LOGO_URL }}
-                style={{ width: 80, height: 80 }}
-                resizeMode="contain"
-             />
-          </View>
-          
-          {/* Title */}
-          <View className="items-center">
-            <Text className="text-white font-extrabold text-5xl tracking-[4px] text-center">
-              SIMAK
-            </Text>
-            <View className="h-1 w-12 bg-white/30 rounded-full my-3" />
-            <Text className="text-blue-50 text-sm font-semibold tracking-[1px] text-center uppercase px-4">
-              Sistem Informasi Manajemen Akademik
-            </Text>
-          </View>
+        {/* Animated Loading Lottie */}
+        <View className="w-64 h-64 items-center justify-center">
+           <LottieView
+              source={require('./src/assets/animations/Book loading.json')}
+              autoPlay
+              loop
+              style={{ width: '100%', height: '100%' }}
+           />
+        </View>
+        
+        {/* Title */}
+        <View className="items-center -mt-10">
+          <Text className="text-white font-extrabold text-5xl tracking-[4px] text-center">
+            SIMAK
+          </Text>
+          <View className="h-1.5 w-16 bg-white/30 rounded-full my-4" />
+          <Text className="text-blue-50 text-xs font-black tracking-[2px] text-center uppercase px-4 opacity-80">
+            Sistem Informasi Manajemen Akademik
+          </Text>
         </View>
 
-        {/* Loading Indicator (Hidden if Error Modal is visible to reduce noise, or keep it) */}
-        {!isErrorVisible && (
-          <View className="absolute bottom-16 items-center w-full">
-            <ActivityIndicator size="large" color="white" className="mb-4" />
-            <Text className="text-blue-50 text-xs font-medium tracking-wider uppercase opacity-80">
-              Memuat Data...
-            </Text>
-          </View>
-        )}
+        {/* Floating Text Indicator */}
+        <View className="absolute bottom-16 items-center w-full">
+          <Text className="text-white text-[10px] font-bold tracking-[3px] uppercase opacity-60">
+            Menyiapkan Sistem
+          </Text>
+        </View>
 
-        {/* === ERROR MODAL POPUP === */}
+        {/* ERROR MODAL TETAP ADA DI SINI */}
         <Modal
           animationType="fade"
           transparent={true}

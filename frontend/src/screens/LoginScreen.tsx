@@ -1,13 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { login } from '../services/auth';
 import api from '../services/api';
 import { MAIN_APP_URL } from '@env';
 import { User, Lock, Eye, EyeOff, School, KeyRound, Phone, X } from 'lucide-react-native';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInUp, FadeInDown, useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton'; 
 import Toast from '../components/Toast'; 
 import LinearGradient from 'react-native-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
+
+const FloatingBubble = ({ size, initialX, initialY, duration }: any) => {
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withTiming(-50, { duration: duration, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          left: initialX,
+          top: initialY,
+        },
+        style,
+      ]}
+    />
+  );
+};
 
 const LoginScreen = ({ navigation, route }: any) => {
   const [username, setUsername] = useState('');
@@ -98,13 +133,17 @@ const LoginScreen = ({ navigation, route }: any) => {
           showsVerticalScrollIndicator={false}
         >
           
-                  {/* Background Design - Gradient */}
-                  <LinearGradient 
-                    colors={['#3b82f6', '#1e40af']} 
-                    start={{x: 0, y: 0}} end={{x: 1, y: 1}}
-                    style={{ position: 'absolute', top: 0, width: '100%', height: '45%', borderBottomLeftRadius: 50, borderBottomRightRadius: 50 }}
-                  />          
-          <View className="flex-1 px-6 py-6 justify-between min-h-[600px]">
+                          {/* Background Design - Gradient & Bubbles */}
+                          <LinearGradient 
+                            colors={['#3b82f6', '#1e40af']} 
+                            start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+                            style={{ position: 'absolute', top: 0, width: '100%', height: '45%', borderBottomLeftRadius: 50, borderBottomRightRadius: 50, overflow: 'hidden' }}
+                          >
+                             <FloatingBubble size={120} initialX={-30} initialY={40} duration={5000} />
+                             <FloatingBubble size={180} initialX={width - 100} initialY={120} duration={7000} />
+                             <FloatingBubble size={50} initialX={width / 2 - 25} initialY={60} duration={4000} />
+                             <FloatingBubble size={80} initialX={40} initialY={200} duration={6000} />
+                          </LinearGradient>          <View className="flex-1 px-6 py-6 justify-between min-h-[600px]">
             
             {/* Top Spacer & Logo */}
             <View className="flex-1 justify-center items-center pt-10">

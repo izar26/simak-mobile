@@ -21,9 +21,46 @@ const DashboardScreen = ({ navigation }: any) => {
   const [jadwal, setJadwal] = useState<any[]>([]);
   const [pengumuman, setPengumuman] = useState<any[]>([]); // Data Pengumuman Real
   const [attendanceStats, setAttendanceStats] = useState({ Hadir: 0, Sakit: 0, Izin: 0, Alfa: 0 });
-  const [notifCount, setNotifCount] = useState(0); // State Notifikasi
+  const [notifCount, setNotifCount] = useState(0); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const scheduleScrollRef = React.useRef<ScrollView>(null);
+  const [now, setNow] = useState(new Date());
+
+  // Timer untuk update waktu setiap menit (Real-time LIVE status)
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Helper cek status waktu
+  const isLive = (jamRange: string) => {
+    try {
+        const [start, end] = jamRange.split(' - ');
+        const [startH, startM] = start.split(':').map(Number);
+        const [endH, endM] = end.split(':').map(Number);
+        
+        const startTime = new Date(now);
+        startTime.setHours(startH, startM, 0);
+        
+        const endTime = new Date(now);
+        endTime.setHours(endH, endM, 0);
+        
+        return now >= startTime && now < endTime;
+    } catch (e) { return false; }
+  };
+
+  // Auto Scroll ke LIVE Schedule (Setiap ada perubahan waktu/jadwal)
+  useEffect(() => {
+    if (jadwal.length > 0) {
+      // Cari index yang sedang LIVE berdasarkan waktu SEKARANG (bukan data server)
+      const liveIndex = jadwal.findIndex(item => isLive(item.jam));
+      
+      if (liveIndex !== -1 && scheduleScrollRef.current) {
+        scheduleScrollRef.current?.scrollTo({ x: liveIndex * 288, animated: true }); // 272 (w-72) + 16 (mr-4)
+      }
+    }
+  }, [jadwal, now]); // Re-run saat jadwal load ATAU menit berganti
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -297,40 +334,64 @@ const DashboardScreen = ({ navigation }: any) => {
           </View>
           
           {jadwal.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6" contentContainerStyle={{ paddingRight: 24 }}>
-              {jadwal.map((item, i) => (
-                <View key={i} className="mr-4 w-64 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden flex-col justify-between h-32">
-                  <View className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                    item.is_non_kbm ? 'bg-orange-400' : (item.status === 'Berlangsung' ? 'bg-green-500' : 'bg-blue-500')
+            <ScrollView 
+              ref={scheduleScrollRef}
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              className="-mx-6 px-6" 
+              contentContainerStyle={{ paddingRight: 24 }}
+            >
+              {jadwal.map((item, i) => {
+                const live = isLive(item.jam);
+                return (
+                <View key={i} className="mr-4 w-72 bg-white p-4 rounded-[24px] border border-slate-100 shadow-sm relative overflow-hidden flex-col h-40">
+                  {/* Left Indicator */}
+                  <View className={`absolute left-0 top-0 bottom-0 w-2 ${
+                    item.is_non_kbm ? 'bg-orange-400' : (live ? 'bg-green-500' : 'bg-blue-600')
                   }`} />
                   
-                  <View className="pl-3 flex-row justify-between items-start">
-                    <View>
-                        <Text className="text-slate-400 text-xs font-bold mb-1">{item.jam}</Text>
-                        <Text className="text-slate-800 font-bold text-lg leading-6 pr-2" numberOfLines={2}>{item.mapel}</Text>
+                  <View className="pl-4 flex-1 flex-col">
+                    {/* Top Row: Time & Live Badge */}
+                    <View className="flex-row justify-between items-center mb-2">
+                        <View className="flex-row items-center bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                           <Clock size={12} color="#64748b" />
+                           <Text className="text-slate-600 text-xs font-bold ml-1.5">{item.jam}</Text>
+                        </View>
+                        
+                        {live && (
+                          <View className="bg-green-500 px-3 py-1 rounded-full shadow-sm shadow-green-200 animate-pulse">
+                            <Text className="text-white text-[10px] font-black tracking-wider">LIVE NOW</Text>
+                          </View>
+                        )}
                     </View>
-                    {item.status === 'Berlangsung' && (
-                      <View className="bg-green-100 px-2 py-1 rounded-lg">
-                        <Text className="text-green-700 text-[10px] font-bold">LIVE</Text>
-                      </View>
-                    )}
-                  </View>
 
-                  <View className="pl-3 mt-2">
-                    {!item.is_non_kbm ? (
-                        <View className="flex-row items-center gap-1.5 bg-slate-50 self-start px-2 py-1 rounded-md">
-                            <User size={12} color="#64748b" />
-                            <Text className="text-slate-500 text-xs font-medium" numberOfLines={1}>{item.guru}</Text>
-                        </View>
-                    ) : (
-                        <View className="flex-row items-center gap-1.5 bg-orange-50 self-start px-2 py-1 rounded-md">
-                            <Clock size={12} color="#f97316" />
-                            <Text className="text-orange-600 text-xs font-bold">Kegiatan</Text>
-                        </View>
-                    )}
+                    {/* Middle: Title */}
+                    <View className="flex-1 justify-center">
+                        <Text className="text-slate-800 font-black text-xl leading-7" numberOfLines={2} ellipsizeMode="tail">
+                            {item.mapel}
+                        </Text>
+                    </View>
+
+                    {/* Bottom: Teacher / Type */}
+                    <View className="mt-2 pt-2 border-t border-slate-50 flex-row items-center">
+                        {!item.is_non_kbm ? (
+                            <>
+                                <View className="bg-blue-50 p-1 rounded-full mr-2">
+                                    <User size={12} color="#3b82f6" />
+                                </View>
+                                <Text className="text-slate-500 text-xs font-bold flex-1" numberOfLines={1}>
+                                    {item.guru}
+                                </Text>
+                            </>
+                        ) : (
+                            <Text className="text-orange-500 text-[10px] font-black uppercase tracking-widest bg-orange-50 px-2 py-0.5 rounded">
+                                KEGIATAN SEKOLAH
+                            </Text>
+                        )}
+                    </View>
                   </View>
                 </View>
-              ))}
+              )})} 
             </ScrollView>
           ) : (
             <View className="items-center py-8 bg-white rounded-3xl border border-dashed border-slate-200">
@@ -363,14 +424,16 @@ const DashboardScreen = ({ navigation }: any) => {
                     <View className={`px-3 py-1 rounded-full border ${
                       item.type === 'libur' ? 'bg-red-50 border-red-100' : 
                       item.type === 'berita' ? 'bg-emerald-50 border-emerald-100' :
+                      item.type === 'agenda' ? 'bg-amber-50 border-amber-100' :
                       'bg-blue-50 border-blue-100'
                     }`}>
                       <Text className={`text-[10px] font-bold uppercase ${
                         item.type === 'libur' ? 'text-red-600' : 
                         item.type === 'berita' ? 'text-emerald-600' :
+                        item.type === 'agenda' ? 'text-amber-600' :
                         'text-blue-600'
                       }`}>
-                        {item.type === 'libur' ? 'LIBUR' : item.type === 'berita' ? 'BERITA' : 'INFO'}
+                        {item.type === 'libur' ? 'LIBUR' : item.type === 'berita' ? 'BERITA' : item.type === 'agenda' ? 'AGENDA' : 'INFO'}
                       </Text>
                     </View>
                     <Text className="text-slate-400 text-xs font-medium">

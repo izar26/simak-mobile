@@ -6,6 +6,7 @@ import api from '../services/api';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton';
 import LottieView from 'lottie-react-native';
+import LinearGradient from 'react-native-linear-gradient';
 
 const AnnouncementsScreen = ({ navigation }: any) => {
   const [data, setData] = useState<any[]>([]);
@@ -18,10 +19,8 @@ const AnnouncementsScreen = ({ navigation }: any) => {
 
   const fetchData = async () => {
     try {
-      // Kita gunakan endpoint jadwal-hari-ini sementara karena endpoint khusus belum ada
-      // Idealnya nanti buat endpoint /siswa/berita-lengkap
-      const response = await api.get('/siswa/jadwal-hari-ini');
-      setData(response.data.pengumuman || []);
+      const response = await api.get('/siswa/semua-informasi');
+      setData(response.data || []);
     } catch (error) {
       console.log('Error fetching announcements:', error);
     } finally {
@@ -39,6 +38,7 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     switch (type) {
       case 'libur': return { label: 'LIBUR', color: 'text-red-600', bg: 'bg-red-50 border-red-100', icon: Calendar };
       case 'berita': return { label: 'BERITA', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100', icon: FileText };
+      case 'agenda': return { label: 'AGENDA', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100', icon: Info };
       default: return { label: 'INFO', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-100', icon: Info };
     }
   };
@@ -76,13 +76,21 @@ const AnnouncementsScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
-      <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-slate-100 z-10">
-        <TouchableOpacity onPress={() => navigation.goBack()} className="w-10 h-10 rounded-xl bg-slate-50 items-center justify-center border border-slate-100">
-          <ChevronLeft size={24} color="#1e293b" />
+      <LinearGradient 
+        colors={['#3b82f6', '#1d4ed8']} 
+        start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+        style={{ borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+        className="flex-row items-center justify-between px-6 py-4 pt-4 shadow-lg mb-2"
+      >
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          className="w-10 h-10 rounded-2xl bg-white/20 items-center justify-center border border-white/30 backdrop-blur-md"
+        >
+          <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
-        <Text className="text-lg font-black text-slate-800 tracking-tight">Informasi Sekolah</Text>
+        <Text className="text-xl font-black text-white tracking-tight">Informasi Sekolah</Text>
         <View className="w-10" /> 
-      </View>
+      </LinearGradient>
 
       {loading ? (
         <View className="p-6 pt-4">

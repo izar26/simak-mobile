@@ -10,6 +10,7 @@ import { MAIN_APP_URL } from '@env';
 import LinearGradient from 'react-native-linear-gradient';
 import LottieView from 'lottie-react-native';
 import Skeleton from '../../components/Skeleton';
+import StatusModal from '../../components/StatusModal';
 
 const PreviewModal = ({ visible, berkas, onClose }: any) => {
   if (!visible || !berkas) return null;
@@ -103,93 +104,6 @@ const PreviewModal = ({ visible, berkas, onClose }: any) => {
   );
 };
 
-const FancyAlert = ({ visible, title, message, type, onClose, onConfirm, onSelectOption }: any) => {
-  if (!visible) return null;
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/60 justify-center items-center p-6">
-        <View className="bg-white w-full max-w-sm rounded-[32px] p-6 items-center shadow-2xl">
-          
-          {/* Icon */}
-          <View className={`w-20 h-20 rounded-full items-center justify-center mb-5 ${
-            type === 'success' ? 'bg-green-100' : 
-            type === 'error' ? 'bg-red-100' : 
-            type === 'warning' ? 'bg-amber-100' : 'bg-blue-50'
-          }`}>
-            {type === 'success' && <CheckCircle size={40} color="#16a34a" />}
-            {type === 'error' && <XCircle size={40} color="#dc2626" />}
-            {type === 'warning' && <AlertCircle size={40} color="#d97706" />}
-            {(type === 'selection' || type === 'confirm') && <FileText size={40} color="#2563eb" />}
-          </View>
-
-          <Text className="text-xl font-black text-gray-800 mb-2 text-center">{title}</Text>
-          <Text className="text-gray-500 text-center mb-8 leading-5">{message}</Text>
-
-          {/* Action Buttons based on Type */}
-          {type === 'selection' ? (
-            <View className="w-full gap-3">
-              <TouchableOpacity 
-                onPress={() => onSelectOption('photo')}
-                className="flex-row items-center bg-blue-50 p-4 rounded-2xl border border-blue-100"
-              >
-                <View className="bg-blue-500 p-2 rounded-lg mr-3">
-                  <Image source={{ uri: 'https://img.icons8.com/color/48/camera.png' }} className="w-6 h-6" /> 
-                  {/* Fallback icon if remote image fails, though lucide is better */}
-                  <View className="absolute inset-0 items-center justify-center"><Eye size={16} color="white"/></View>
-                </View>
-                <View>
-                  <Text className="text-blue-900 font-bold text-base">Foto / Gambar</Text>
-                  <Text className="text-blue-400 text-xs">Ambil dari galeri & otomatis kompres</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => onSelectOption('pdf')}
-                className="flex-row items-center bg-red-50 p-4 rounded-2xl border border-red-100"
-              >
-                <View className="bg-red-500 p-2 rounded-lg mr-3">
-                  <FileText size={20} color="white" />
-                </View>
-                <View>
-                  <Text className="text-red-900 font-bold text-base">Dokumen PDF</Text>
-                  <Text className="text-red-400 text-xs">Pilih file PDF (Maks. 1 MB)</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={onClose} className="mt-2 py-3">
-                <Text className="text-gray-400 font-bold text-center">Batal</Text>
-              </TouchableOpacity>
-            </View>
-          ) : type === 'confirm' ? (
-            <View className="flex-row gap-3 w-full">
-              <TouchableOpacity onPress={onClose} className="flex-1 py-3.5 bg-gray-100 rounded-2xl">
-                <Text className="text-gray-600 font-bold text-center">Batal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onConfirm} className="flex-1 py-3.5 bg-red-600 rounded-2xl shadow-lg shadow-red-200">
-                <Text className="text-white font-bold text-center">Hapus</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity 
-              onPress={onClose}
-              className={`w-full py-4 rounded-2xl shadow-lg ${
-                type === 'success' ? 'bg-green-600 shadow-green-200' : 
-                type === 'error' ? 'bg-red-600 shadow-red-200' : 
-                'bg-amber-500 shadow-amber-200'
-              }`}
-            >
-              <Text className="text-white text-center font-bold text-lg">
-                {type === 'success' ? 'Selesai' : 'Mengerti'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
 const BerkasScreen = ({ navigation, route }: any) => {
   const { user } = route.params || {}; 
   const [berkasList, setBerkasList] = useState<any[]>(user?.siswa?.berkas || []);
@@ -198,14 +112,13 @@ const BerkasScreen = ({ navigation, route }: any) => {
   const [loading, setLoading] = useState(false);
   const [selectedBerkas, setSelectedBerkas] = useState<any>(null);
   
-  // Custom Alert State
-  const [alert, setAlert] = useState<any>({ visible: false, type: 'success' });
-
-  const showAlert = (type: string, title: string, message: string, onConfirm?: any, onSelectOption?: any) => {
-    setAlert({ visible: true, type, title, message, onConfirm, onSelectOption });
-  };
-
-  const closeAlert = () => setAlert({ ...alert, visible: false });
+  // Status Modal State
+  const [modalStatus, setModalStatus] = useState({
+    visible: false,
+    type: 'success' as 'success' | 'error' | 'warning' | 'info',
+    title: '',
+    message: ''
+  });
 
   // Fetch ulang data agar sinkron
   useEffect(() => {
@@ -226,7 +139,7 @@ const BerkasScreen = ({ navigation, route }: any) => {
 
   const executeUpload = async (file: { uri: string, type: string, name: string, size?: number }) => {
     if (file.size && file.size > 1 * 1024 * 1024) {
-      showAlert('error', 'File Terlalu Besar', 'Ukuran file maksimal adalah 1 MB. Silakan kecilkan file Anda terlebih dahulu.');
+      setModalStatus({ visible: true, type: 'error', title: 'File Terlalu Besar', message: 'Ukuran file maksimal adalah 1 MB. Silakan kecilkan file Anda.' });
       return;
     }
 
@@ -246,10 +159,10 @@ const BerkasScreen = ({ navigation, route }: any) => {
 
       setBerkasList(prev => [...prev, response.data.berkas]);
       setJudul(''); 
-      showAlert('success', 'Berhasil Upload', 'Dokumen Anda berhasil disimpan ke dalam sistem.');
+      setModalStatus({ visible: true, type: 'success', title: 'Berhasil Upload', message: 'Dokumen Anda berhasil disimpan ke dalam sistem.' });
     } catch (error) {
       console.error(error);
-      showAlert('error', 'Gagal Upload', 'Terjadi kesalahan saat mengupload file. Coba lagi nanti.');
+      setModalStatus({ visible: true, type: 'error', title: 'Gagal Upload', message: 'Terjadi kesalahan saat mengupload file. Coba lagi nanti.' });
     } finally {
       setUploading(false);
     }
@@ -257,14 +170,17 @@ const BerkasScreen = ({ navigation, route }: any) => {
 
   const handleUpload = async () => {
     if (!judul.trim()) {
-      showAlert('warning', 'Judul Kosong', 'Silakan isi nama dokumen terlebih dahulu sebelum memilih file.');
+      setModalStatus({ visible: true, type: 'warning', title: 'Judul Kosong', message: 'Silakan isi nama dokumen terlebih dahulu sebelum memilih file.' });
       return;
     }
 
-    showAlert('selection', 'Pilih Jenis File', 'Format apa yang ingin Anda upload?', null, (option: string) => {
-      closeAlert();
-      setTimeout(async () => {
-        if (option === 'photo') {
+    Alert.alert(
+      'Pilih Jenis File',
+      'Format dokumen apa yang ingin Anda upload?',
+      [
+        {
+          text: 'Foto / Gambar',
+          onPress: async () => {
             try {
               const image = await ImageCropPicker.openPicker({
                 mediaType: 'photo',
@@ -279,7 +195,11 @@ const BerkasScreen = ({ navigation, route }: any) => {
                 size: image.size
               });
             } catch (err) { console.log('Picker cancelled'); }
-        } else {
+          }
+        },
+        {
+          text: 'Dokumen PDF',
+          onPress: async () => {
             try {
               const result = await pick({
                 type: [types.pdf],
@@ -293,21 +213,34 @@ const BerkasScreen = ({ navigation, route }: any) => {
                 size: file.size || 0
               });
             } catch (err: any) { if (!isCancel(err)) console.error(err); }
-        }
-      }, 500);
-    });
+          }
+        },
+        { text: 'Batal', style: 'cancel' }
+      ]
+    );
   };
 
   const handleDeleteBerkas = async (id: number) => {
-    showAlert('confirm', 'Hapus Dokumen?', 'Apakah Anda yakin ingin menghapus dokumen ini secara permanen?', async () => {
-      closeAlert();
-      try {
-        await api.post('/siswa/hapus-berkas', { id });
-        setBerkasList(prev => prev.filter(b => b.id !== id));
-      } catch (error) {
-        setTimeout(() => showAlert('error', 'Gagal Hapus', 'Tidak dapat menghapus dokumen ini.'), 500);
-      }
-    });
+    Alert.alert(
+      'Hapus Dokumen?',
+      'Apakah Anda yakin ingin menghapus dokumen ini secara permanen?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        { 
+          text: 'Hapus', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              await api.post('/siswa/hapus-berkas', { id });
+              setBerkasList(prev => prev.filter(b => b.id !== id));
+              setModalStatus({ visible: true, type: 'success', title: 'Terhapus', message: 'Dokumen berhasil dihapus.' });
+            } catch (error) {
+              setModalStatus({ visible: true, type: 'error', title: 'Gagal Hapus', message: 'Tidak dapat menghapus dokumen ini.' });
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -433,15 +366,13 @@ const BerkasScreen = ({ navigation, route }: any) => {
         onClose={() => setSelectedBerkas(null)} 
       />
 
-      {/* Fancy Alert Modal */}
-      <FancyAlert 
-        visible={alert.visible}
-        title={alert.title}
-        message={alert.message}
-        type={alert.type}
-        onClose={closeAlert}
-        onConfirm={alert.onConfirm}
-        onSelectOption={alert.onSelectOption}
+      {/* Status Modal Global */}
+      <StatusModal 
+        visible={modalStatus.visible}
+        type={modalStatus.type}
+        title={modalStatus.title}
+        message={modalStatus.message}
+        onClose={() => setModalStatus({ ...modalStatus, visible: false })}
       />
     </SafeAreaView>
   );

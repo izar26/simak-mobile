@@ -6,6 +6,7 @@ import api from '../services/api';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieView from 'lottie-react-native';
+import LinearGradient from 'react-native-linear-gradient';
 
 const NotificationScreen = ({ navigation }: any) => {
   const [sections, setSections] = useState<any[]>([]);
@@ -163,15 +164,23 @@ const NotificationScreen = ({ navigation }: any) => {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-slate-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-white border-b border-slate-50 z-10">
-        <TouchableOpacity onPress={() => navigation.goBack()} className="w-10 h-10 rounded-xl bg-slate-50 items-center justify-center border border-slate-100">
-          <ChevronLeft size={24} color="#1e293b" />
+      <LinearGradient 
+        colors={['#3b82f6', '#1d4ed8']} 
+        start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+        style={{ borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}
+        className="flex-row items-center justify-between px-6 py-4 pt-4 shadow-lg mb-2"
+      >
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          className="w-10 h-10 rounded-2xl bg-white/20 items-center justify-center border border-white/30 backdrop-blur-md"
+        >
+          <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
-        <Text className="text-lg font-black text-slate-800 tracking-tight">Notifikasi</Text>
+        <Text className="text-xl font-black text-white tracking-tight">Notifikasi</Text>
         <View className="w-10" /> 
-      </View>
+      </LinearGradient>
 
       {/* Content */}
       {loading ? (

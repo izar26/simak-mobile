@@ -346,7 +346,8 @@ class SiswaController extends Controller
                     'type' => 'libur',
                     'title' => $item->keterangan,
                     'date' => $item->tanggal_mulai,
-                    'desc' => 'Kegiatan sekolah ditiadakan.'
+                    'desc' => 'Kegiatan sekolah ditiadakan.',
+                    'content' => $item->keterangan // Fallback content
                 ];
             });
 
@@ -359,13 +360,14 @@ class SiswaController extends Controller
                     'type' => 'info',
                     'title' => $item->judul,
                     'date' => $item->tgl_terbit,
-                    'desc' => strip_tags($item->isi)
+                    'desc' => trim(strip_tags(str_replace(['<br>', '<br />', '</p>'], ["\n", "\n", "\n\n"], $item->isi))),
+                    'content' => $item->isi // RAW HTML CONTENT
                 ];
             });
 
         // 3. Ambil Berita Terbaru (Published)
         $berita = DB::table('beritas')
-            ->where('status', 'published') // Asumsi status 'published'
+            ->where('status', 'published')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
@@ -374,12 +376,32 @@ class SiswaController extends Controller
                     'type' => 'berita',
                     'title' => $item->judul,
                     'date' => $item->created_at,
-                    'desc' => $item->ringkasan
+                    'desc' => $item->ringkasan,
+                    'image' => $item->gambar,
+                    'content' => $item->isi
                 ];
             });
 
-        // 4. Gabung & Urutkan
-        $pengumuman = $libur->merge($info)->merge($berita)
+        // 4. Ambil Agenda Mendatang
+        $agenda = DB::table('agendas')
+            ->where('tanggal_selesai', '>=', Carbon::now()->format('Y-m-d'))
+            ->orderBy('tanggal_mulai', 'asc')
+            ->limit(5)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'agenda',
+                    'title' => $item->judul,
+                    'date' => $item->tanggal_mulai,
+                    'desc' => ($item->jam_mulai ? $item->jam_mulai . ' - ' : '') . ($item->lokasi ? '@' . $item->lokasi : ''),
+                    'content' => $item->deskripsi,
+                    'lokasi' => $item->lokasi,
+                    'jam' => $item->jam_mulai
+                ];
+            });
+
+        // 5. Gabung & Urutkan
+        $pengumuman = $libur->merge($info)->merge($berita)->merge($agenda)
             ->sortByDesc('date')
             ->values()
             ->take(10);
@@ -656,45 +678,73 @@ class SiswaController extends Controller
 
     public function getNotifikasi(Request $request)
     {
-        $user = $request->user();
-        $siswa = $user->siswa;
+        // ... (existing code)
+    }
 
-        if (!$siswa) {
-            return response()->json([]);
-        }
-
-        // Ambil riwayat pengajuan sebagai notifikasi
-        $notifikasi = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
-            ->orderBy('updated_at', 'desc')
+    public function getSemuaInformasi(Request $request)
+    {
+        $libur = DB::table('hari_libur')
+            ->where('tanggal_selesai', '>=', Carbon::now()->subMonths(1)->format('Y-m-d')) // Tampilkan riwayat 1 bulan lalu juga
             ->get()
             ->map(function ($item) {
-                // Format pesan notifikasi
-                $title = 'Pengajuan Perubahan Data';
-                $message = 'Pengajuan Anda sedang diproses.';
-                $type = 'info'; // info, success, error
-
-                if ($item->status === 'disetujui') {
-                    $title = 'Pengajuan Disetujui ✅';
-                    $message = 'Selamat! Perubahan data profil Anda telah disetujui oleh operator.';
-                    $type = 'success';
-                } elseif ($item->status === 'ditolak') {
-                    $title = 'Pengajuan Ditolak ❌';
-                    $message = 'Maaf, pengajuan Anda ditolak. ' . ($item->catatan_operator ? 'Alasan: ' . $item->catatan_operator : 'Silakan hubungi sekolah.');
-                    $type = 'error';
-                }
-
                 return [
-                    'id' => $item->id,
-                    'title' => $title,
-                    'message' => $message,
-                    'status' => $item->status, // pending, disetujui, ditolak
-                    'date' => Carbon::parse($item->updated_at)->diffForHumans(),
-                    'raw_date' => $item->updated_at,
-                    'type' => $type,
-                    'catatan' => $item->catatan_operator
+                    'type' => 'libur',
+                    'title' => $item->keterangan,
+                    'date' => $item->tanggal_mulai,
+                    'desc' => 'Kegiatan sekolah ditiadakan.',
+                    'content' => $item->keterangan
                 ];
             });
 
-        return response()->json($notifikasi);
+        $info = DB::table('pengumuman')
+            ->where('is_active', 1)
+            ->orderBy('tgl_terbit', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'info',
+                    'title' => $item->judul,
+                    'date' => $item->tgl_terbit,
+                    'desc' => trim(strip_tags(str_replace(['<br>', '<br />', '</p>'], ["\n", "\n", "\n\n"], $item->isi))),
+                    'content' => $item->isi
+                ];
+            });
+
+        $berita = DB::table('beritas')
+            ->where('status', 'published')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'berita',
+                    'title' => $item->judul,
+                    'date' => $item->created_at,
+                    'desc' => $item->ringkasan,
+                    'image' => $item->gambar,
+                    'content' => $item->isi
+                ];
+            });
+
+        $agenda = DB::table('agendas')
+            ->orderBy('tanggal_mulai', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'agenda',
+                    'title' => $item->judul,
+                    'date' => $item->tanggal_mulai,
+                    'desc' => ($item->jam_mulai ? $item->jam_mulai . ' - ' : '') . ($item->lokasi ? '@' . $item->lokasi : ''),
+                    'content' => $item->deskripsi,
+                    'lokasi' => $item->lokasi,
+                    'jam' => $item->jam_mulai
+                ];
+            });
+
+        $hasil = $libur->merge($info)->merge($berita)->merge($agenda)
+            ->sortByDesc('date')
+            ->values()
+            ->take(50);
+
+        return response()->json($hasil);
     }
 }

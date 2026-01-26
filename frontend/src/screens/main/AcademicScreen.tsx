@@ -5,6 +5,7 @@ import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, CalendarDays,
 import Animated, { FadeIn } from 'react-native-reanimated';
 import api from '../../services/api';
 import Skeleton from '../../components/Skeleton';
+import LottieView from 'lottie-react-native';
 
 const AcademicScreen = () => {
   const [activeTab, setActiveTab] = useState('harian'); // 'harian' | 'mapel'
@@ -313,11 +314,14 @@ const AcademicScreen = () => {
           contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 100, paddingTop: 20 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View className="items-center py-16 opacity-60">
-              <View className="w-20 h-20 bg-slate-200 rounded-full items-center justify-center mb-4">
-                <CalendarDays size={40} color="#94a3b8" />
-              </View>
-              <Text className="text-slate-500 font-bold text-lg">Tidak ada data</Text>
+            <View className="items-center py-10 px-10 opacity-90">
+              <LottieView
+                source={require('../../assets/animations/No-Data.json')}
+                autoPlay
+                loop
+                style={{ width: 200, height: 200 }}
+              />
+              <Text className="text-slate-800 font-bold text-lg -mt-4">Tidak ada data</Text>
               <Text className="text-slate-400 text-center text-sm mt-1 max-w-[200px]">
                 {activeFilter ? `Tidak ada data dengan status "${activeFilter}"` : 'Riwayat absensi akan muncul di sini.'}
               </Text>
