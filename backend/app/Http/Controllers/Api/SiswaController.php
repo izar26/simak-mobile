@@ -107,16 +107,16 @@ class SiswaController extends Controller
 
                 $file = $request->file('foto');
                 $filename = time() . '_' . \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
-                
+
                 // Simpan file
                 $path = $file->storeAs('siswa/foto', $filename, 'public');
-                
+
                 // FORCE UPDATE LANGSUNG KE DB (Bypassing Eloquent mutators or delays)
                 DB::table('siswas')->where('id', $siswa->id)->update(['foto' => $path]);
-                
+
                 // Set update di object user untuk response JSON nanti
-                $siswa->foto = $path; 
-                
+                $siswa->foto = $path;
+
                 // Hapus dari input agar tidak diproses lagi di loop bawah
                 unset($input['foto']);
 
@@ -197,147 +197,9 @@ class SiswaController extends Controller
         $user = $request->user();
         $siswa = $user->siswa;
 
-        if (!$siswa || !$siswa->rombongan_belajar_id) {
-            return response()->json([]);
-        }
-
-        // 1. Ambil Tapel Aktif
-        $tapel = DB::table('tapel')->where('is_active', 1)->first();
-        if (!$tapel) {
-            return response()->json([]);
-        }
-
-        // 2. Cari Nama Rombel siswa saat ini
-        $rombelSiswa = DB::table('rombels')
-            ->where('rombongan_belajar_id', $siswa->rombongan_belajar_id)
-            ->orderBy('id', 'desc')
-            ->first();
-
-        if (!$rombelSiswa) {
-            return response()->json([]);
-        }
-
-        // 3. Cari SEMUA ID Rombel
-        $rombelIds = DB::table('rombels')
-            ->where('nama', $rombelSiswa->nama)
-            ->where('semester_id', $tapel->kode_tapel)
-            ->pluck('id');
-
-        if ($rombelIds->isEmpty()) {
-            return response()->json([]);
-        }
-
-        Carbon::setLocale('id');
-        $hari = Carbon::now()->isoFormat('dddd');
-
-        // A. AMBIL SEMUA SLOT JAM UNTUK HARI INI (Termasuk Istirahat/Upacara)
-        $allJam = DB::table('jam_pelajarans')
-            ->where('hari', $hari)
-            ->orderBy('jam_mulai')
-            ->get();
-
-        if ($allJam->isEmpty()) {
-            return response()->json([]);
-        }
-
-        // B. AMBIL JADWAL MAPEL UNTUK KELAS INI
-        $jadwalMapel = DB::table('jadwal_pelajarans')
-            ->join('pembelajarans', 'jadwal_pelajarans.pembelajaran_id', '=', 'pembelajarans.id')
-            ->leftJoin('gtks', 'pembelajarans.ptk_id', '=', 'gtks.ptk_id')
-            ->whereIn('jadwal_pelajarans.rombel_id', $rombelIds)
-            ->whereIn('jadwal_pelajarans.jam_pelajaran_id', $allJam->pluck('id'))
-            ->select(
-                'jadwal_pelajarans.jam_pelajaran_id',
-                'pembelajarans.nama_mata_pelajaran as mapel',
-                'gtks.nama as guru'
-            )
-            ->get()
-            ->keyBy('jam_pelajaran_id'); // Key by ID biar gampang dicocokkan
-
-        // C. GABUNGKAN DATA JAM + MAPEL
-        $finalList = [];
-
-        foreach ($allJam as $jam) {
-            $item = new \stdClass();
-            $item->jam_mulai = $jam->jam_mulai;
-            $item->jam_selesai = $jam->jam_selesai;
-            $item->tipe = $jam->tipe; // upacara, istirahat, kbm, dll
-
-            if ($jam->tipe === 'kbm') {
-                if (isset($jadwalMapel[$jam->id])) {
-                    $mapelData = $jadwalMapel[$jam->id];
-                    $item->mapel = $mapelData->mapel;
-                    $item->guru = $mapelData->guru;
-                    $item->is_non_kbm = false;
-                } else {
-                    $item->mapel = 'Jam Kosong';
-                    $item->guru = '-';
-                    $item->is_non_kbm = false;
-                }
-            } else {
-                // Untuk Istirahat, Upacara, dll
-                // Gunakan tipe sebagai Judul (Capitalized)
-                $item->mapel = ucwords($jam->tipe);
-                $item->guru = ''; // Tidak ada guru
-                $item->is_non_kbm = true;
-            }
-
-            $finalList[] = $item;
-        }
-
-        // D. LOGIKA MERGE JADWAL (Gabungkan jam berurutan yang sama)
-        $mergedJadwal = [];
-        $lastItem = null;
-
-        foreach ($finalList as $item) {
-            $shouldMerge = false;
-
-            if ($lastItem) {
-                if ($item->is_non_kbm) {
-                    // Jika Non-KBM, merge jika Tipe-nya sama (misal Istirahat jam ke-4 & 5)
-                    if ($lastItem->is_non_kbm && $lastItem->mapel === $item->mapel) {
-                        $shouldMerge = true;
-                    }
-                } else {
-                    // Jika KBM, merge jika Mapel & Guru sama
-                    if (!$lastItem->is_non_kbm && $lastItem->mapel === $item->mapel && $lastItem->guru === $item->guru) {
-                        $shouldMerge = true;
-                    }
-                }
-            }
-
-            if ($shouldMerge) {
-                // Merge: Update jam selesai item sebelumnya
-                $lastItem->jam_selesai = $item->jam_selesai;
-            } else {
-                // Push item baru (clone biar aman)
-                $lastItem = clone $item;
-                $mergedJadwal[] = $lastItem;
-            }
-        }
-
-        $formattedJadwal = collect($mergedJadwal)->map(function ($item) {
-            $jamMulai = Carbon::parse($item->jam_mulai)->format('H:i');
-            $jamSelesai = Carbon::parse($item->jam_selesai)->format('H:i');
-
-            $now = Carbon::now()->format('H:i');
-            $status = 'Akan Datang';
-            if ($now >= $jamMulai && $now <= $jamSelesai) {
-                $status = 'Berlangsung';
-            } elseif ($now > $jamSelesai) {
-                $status = 'Selesai';
-            }
-
-            return [
-                'jam' => "$jamMulai - $jamSelesai",
-                'mapel' => $item->mapel,
-                'guru' => $item->guru ?? '-',
-                'status' => $status,
-                'is_non_kbm' => $item->is_non_kbm ?? false
-            ];
-        });
-
-        // 1. Ambil Hari Libur (Masa Depan)
+        // --- 1. SIAPKAN DATA PENGUMUMAN (Selalu load agar Dashboard tidak kosong) ---
+        
+        // A. Ambil Hari Libur (Masa Depan)
         $libur = DB::table('hari_libur')
             ->where('tanggal_selesai', '>=', Carbon::now()->format('Y-m-d'))
             ->get()
@@ -347,11 +209,11 @@ class SiswaController extends Controller
                     'title' => $item->keterangan,
                     'date' => $item->tanggal_mulai,
                     'desc' => 'Kegiatan sekolah ditiadakan.',
-                    'content' => $item->keterangan // Fallback content
+                    'content' => $item->keterangan 
                 ];
             });
 
-        // 2. Ambil Pengumuman Sekolah (Aktif)
+        // B. Ambil Pengumuman Sekolah (Aktif)
         $info = DB::table('pengumuman')
             ->where('is_active', 1)
             ->get()
@@ -361,11 +223,11 @@ class SiswaController extends Controller
                     'title' => $item->judul,
                     'date' => $item->tgl_terbit,
                     'desc' => trim(strip_tags(str_replace(['<br>', '<br />', '</p>'], ["\n", "\n", "\n\n"], $item->isi))),
-                    'content' => $item->isi // RAW HTML CONTENT
+                    'content' => $item->isi
                 ];
             });
 
-        // 3. Ambil Berita Terbaru (Published)
+        // C. Ambil Berita Terbaru (Published)
         $berita = DB::table('beritas')
             ->where('status', 'published')
             ->orderBy('created_at', 'desc')
@@ -382,7 +244,7 @@ class SiswaController extends Controller
                 ];
             });
 
-        // 4. Ambil Agenda Mendatang
+        // D. Ambil Agenda Mendatang
         $agenda = DB::table('agendas')
             ->where('tanggal_selesai', '>=', Carbon::now()->format('Y-m-d'))
             ->orderBy('tanggal_mulai', 'asc')
@@ -400,11 +262,133 @@ class SiswaController extends Controller
                 ];
             });
 
-        // 5. Gabung & Urutkan
+        // E. Gabung & Urutkan
         $pengumuman = $libur->merge($info)->merge($berita)->merge($agenda)
             ->sortByDesc('date')
             ->values()
             ->take(10);
+
+
+        // --- 2. PROSES JADWAL (Bisa kosong jika libur/error) ---
+        $formattedJadwal = [];
+
+        if ($siswa && $siswa->peserta_didik_id) {
+            // Ambil Tapel Aktif
+            $tapel = DB::table('tapel')->where('is_active', 1)->first();
+            
+            if ($tapel) {
+                // Cari SEMUA ID Rombel dimana siswa terdaftar (Reguler + Mapil)
+                // Menggunakan pencarian string pada kolom anggota_rombel (format JSON/Array String)
+                $rombelIds = DB::table('rombels')
+                    ->where('semester_id', $tapel->kode_tapel)
+                    ->where('anggota_rombel', 'like', '%' . $siswa->peserta_didik_id . '%')
+                    ->pluck('id');
+
+                if (!$rombelIds->isEmpty()) {
+                        // Use English day name first to map it safely
+                        $hariRaw = Carbon::now()->format('l');
+                        $daysMap = [
+                            'Monday' => 'Senin',
+                            'Tuesday' => 'Selasa',
+                            'Wednesday' => 'Rabu',
+                            'Thursday' => 'Kamis',
+                            'Friday' => 'Jumat',
+                            'Saturday' => 'Sabtu',
+                            'Sunday' => 'Minggu',
+                        ];
+                        $hari = $daysMap[$hariRaw] ?? $hariRaw;
+
+                        // Ambil Slot Jam
+                        $allJam = DB::table('jam_pelajarans')
+                            ->where('hari', $hari)
+                            ->orderBy('jam_mulai')
+                            ->get();
+
+                        if (!$allJam->isEmpty()) {
+                            // Ambil Mapel
+                            $jadwalMapel = DB::table('jadwal_pelajarans')
+                                ->join('pembelajarans', 'jadwal_pelajarans.pembelajaran_id', '=', 'pembelajarans.id')
+                                ->leftJoin('gtks', 'pembelajarans.ptk_id', '=', 'gtks.ptk_id')
+                                ->whereIn('jadwal_pelajarans.rombel_id', $rombelIds)
+                                ->whereIn('jadwal_pelajarans.jam_pelajaran_id', $allJam->pluck('id'))
+                                ->select(
+                                    'jadwal_pelajarans.jam_pelajaran_id',
+                                    'pembelajarans.nama_mata_pelajaran as mapel',
+                                    'gtks.nama as guru'
+                                )
+                                ->get()
+                                ->keyBy('jam_pelajaran_id');
+
+                            $finalList = [];
+                            foreach ($allJam as $jam) {
+                                $item = new \stdClass();
+                                $item->jam_mulai = $jam->jam_mulai;
+                                $item->jam_selesai = $jam->jam_selesai;
+                                $item->tipe = $jam->tipe;
+
+                                if ($jam->tipe === 'kbm') {
+                                    if (isset($jadwalMapel[$jam->id])) {
+                                        $mapelData = $jadwalMapel[$jam->id];
+                                        $item->mapel = $mapelData->mapel;
+                                        $item->guru = $mapelData->guru;
+                                        $item->is_non_kbm = false;
+                                    } else {
+                                        $item->mapel = 'Jam Kosong';
+                                        $item->guru = '-';
+                                        $item->is_non_kbm = false;
+                                    }
+                                } else {
+                                    $item->mapel = ucwords($jam->tipe);
+                                    $item->guru = '';
+                                    $item->is_non_kbm = true;
+                                }
+                                $finalList[] = $item;
+                            }
+
+                            // Merging Logic
+                            $mergedJadwal = [];
+                            $lastItem = null;
+
+                            foreach ($finalList as $item) {
+                                $shouldMerge = false;
+                                if ($lastItem) {
+                                    if ($item->is_non_kbm) {
+                                        if ($lastItem->is_non_kbm && $lastItem->mapel === $item->mapel) {
+                                            $shouldMerge = true;
+                                        }
+                                    } else {
+                                        if (!$lastItem->is_non_kbm && $lastItem->mapel === $item->mapel && $lastItem->guru === $item->guru) {
+                                            $shouldMerge = true;
+                                        }
+                                    }
+                                }
+
+                                if ($shouldMerge) {
+                                    $lastItem->jam_selesai = $item->jam_selesai;
+                                } else {
+                                    $lastItem = clone $item;
+                                    $mergedJadwal[] = $lastItem;
+                                }
+                            }
+
+                            $formattedJadwal = collect($mergedJadwal)->map(function ($item) {
+                                $jamMulai = Carbon::parse($item->jam_mulai)->format('H:i');
+                                $jamSelesai = Carbon::parse($item->jam_selesai)->format('H:i');
+                                $now = Carbon::now()->format('H:i');
+                                $status = ($now >= $jamMulai && $now <= $jamSelesai) ? 'Berlangsung' : (($now > $jamSelesai) ? 'Selesai' : 'Akan Datang');
+
+                                return [
+                                    'jam' => "$jamMulai - $jamSelesai",
+                                    'mapel' => $item->mapel,
+                                    'guru' => $item->guru ?? '-',
+                                    'status' => $status,
+                                    'is_non_kbm' => $item->is_non_kbm ?? false
+                                ];
+                            });
+                        }
+                }
+            }
+        }
 
         return response()->json([
             'jadwal' => $formattedJadwal,
@@ -417,7 +401,7 @@ class SiswaController extends Controller
         $user = $request->user();
         $siswa = $user->siswa;
 
-        if (!$siswa || !$siswa->rombongan_belajar_id) {
+        if (!$siswa || !$siswa->peserta_didik_id) {
             return response()->json([]);
         }
 
@@ -427,20 +411,10 @@ class SiswaController extends Controller
             return response()->json([]);
         }
 
-        // 2. Cari Nama Rombel siswa
-        $rombelSiswa = DB::table('rombels')
-            ->where('rombongan_belajar_id', $siswa->rombongan_belajar_id)
-            ->orderBy('id', 'desc')
-            ->first();
-
-        if (!$rombelSiswa) {
-            return response()->json([]);
-        }
-
-        // 3. Cari SEMUA ID Rombel
+        // 2. Cari SEMUA ID Rombel dimana siswa terdaftar
         $rombelIds = DB::table('rombels')
-            ->where('nama', $rombelSiswa->nama)
             ->where('semester_id', $tapel->kode_tapel)
+            ->where('anggota_rombel', 'like', '%' . $siswa->peserta_didik_id . '%')
             ->pluck('id');
 
         if ($rombelIds->isEmpty()) {

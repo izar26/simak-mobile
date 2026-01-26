@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, Dimensions, Modal } from 'react-native';
 import { login } from '../services/auth';
 import api from '../services/api';
 import { MAIN_APP_URL } from '@env';
@@ -143,7 +143,8 @@ const LoginScreen = ({ navigation, route }: any) => {
                              <FloatingBubble size={180} initialX={width - 100} initialY={120} duration={7000} />
                              <FloatingBubble size={50} initialX={width / 2 - 25} initialY={60} duration={4000} />
                              <FloatingBubble size={80} initialX={40} initialY={200} duration={6000} />
-                          </LinearGradient>          <View className="flex-1 px-6 py-6 justify-between min-h-[600px]">
+                          </LinearGradient>
+                          <View className="flex-1 px-6 py-6 justify-between min-h-[600px]">
             
             {/* Top Spacer & Logo */}
             <View className="flex-1 justify-center items-center pt-10">
@@ -305,7 +306,7 @@ const LoginScreen = ({ navigation, route }: any) => {
 
             {/* Contact Info (Static Example - can be made dynamic later) */}
             <View className="bg-slate-50 p-4 rounded-xl flex-row items-center justify-center mb-6 border border-slate-100">
-               <Phone size={18} color="#64748b" className="mr-3" />
+               <Phone size={18} color="#64748b" style={{ marginRight: 12 }} />
                <View>
                  <Text className="text-slate-400 text-xs font-semibold uppercase">Hubungi Bagian IT/TU</Text>
                  <Text className="text-slate-700 font-bold text-base">Ruang Tata Usaha</Text>

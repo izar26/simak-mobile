@@ -144,7 +144,7 @@ function App() {
                 onPress={initializeApp}
                 className="bg-blue-600 w-full py-3.5 rounded-xl flex-row justify-center items-center active:bg-blue-700"
               >
-                <RefreshCw size={18} color="white" className="mr-2" />
+                <RefreshCw size={18} color="white" style={{ marginRight: 8 }} />
                 <Text className="text-white font-bold text-base">Coba Lagi</Text>
               </TouchableOpacity>
 

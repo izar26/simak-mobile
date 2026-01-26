@@ -12,6 +12,7 @@ const AnnouncementsScreen = ({ navigation }: any) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState('semua');
 
   useEffect(() => {
     fetchData();
@@ -34,6 +35,10 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     fetchData();
   };
 
+  const filteredData = filter === 'semua' 
+    ? data 
+    : data.filter(item => item.type === filter);
+
   const getBadge = (type: string) => {
     switch (type) {
       case 'libur': return { label: 'LIBUR', color: 'text-red-600', bg: 'bg-red-50 border-red-100', icon: Calendar };
@@ -42,6 +47,14 @@ const AnnouncementsScreen = ({ navigation }: any) => {
       default: return { label: 'INFO', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-100', icon: Info };
     }
   };
+
+  const categories = [
+    { id: 'semua', label: 'Semua' },
+    { id: 'berita', label: 'Berita' },
+    { id: 'libur', label: 'Libur' },
+    { id: 'agenda', label: 'Agenda' },
+    { id: 'info', label: 'Info' },
+  ];
 
   const renderItem = ({ item, index }: any) => {
     const badge = getBadge(item.type);
@@ -92,6 +105,33 @@ const AnnouncementsScreen = ({ navigation }: any) => {
         <View className="w-10" /> 
       </LinearGradient>
 
+      {/* Filter Chips */}
+      <View className="py-2">
+        <FlatList
+          horizontal
+          data={categories}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, gap: 8 }}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              onPress={() => setFilter(item.id)}
+              className={`px-4 py-2 rounded-full border ${
+                filter === item.id 
+                  ? 'bg-blue-600 border-blue-600' 
+                  : 'bg-white border-slate-200'
+              }`}
+            >
+              <Text className={`text-xs font-bold ${
+                filter === item.id ? 'text-white' : 'text-slate-600'
+              }`}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+
       {loading ? (
         <View className="p-6 pt-4">
            {[1,2,3,4].map(i => (
@@ -108,7 +148,7 @@ const AnnouncementsScreen = ({ navigation }: any) => {
         </View>
       ) : (
         <FlatList
-          data={data}
+          data={filteredData}
           keyExtractor={(item, index) => index.toString()}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
@@ -122,7 +162,7 @@ const AnnouncementsScreen = ({ navigation }: any) => {
                   style={{ width: 200, height: 200 }}
                />
                <Text className="text-slate-800 font-bold text-lg -mt-4 text-center">Belum Ada Informasi</Text>
-               <Text className="text-slate-400 text-center text-sm leading-6">Tidak ada pengumuman atau berita terbaru dari sekolah saat ini.</Text>
+               <Text className="text-slate-400 text-center text-sm leading-6">Tidak ada {filter !== 'semua' ? `informasi kategori ${filter}` : 'pengumuman atau berita terbaru'} dari sekolah saat ini.</Text>
             </View>
           }
         />
