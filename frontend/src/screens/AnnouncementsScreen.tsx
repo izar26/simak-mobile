@@ -17,11 +17,13 @@ import {
   Clock,
   ChevronRight,
 } from 'lucide-react-native';
-import api from '../services/api';
+import api from '../services/api'; // Masih butuh jika ada API call lain, tapi utamanya pakai smart cache
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton';
-import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
+
+// ✅ 1. IMPORT SMART CACHE
+import { fetchWithSmartCache } from '../utils/apiCache';
 
 const AnnouncementsScreen = ({ navigation }: any) => {
   const [data, setData] = useState<any[]>([]);
@@ -30,13 +32,24 @@ const AnnouncementsScreen = ({ navigation }: any) => {
   const [filter, setFilter] = useState('semua');
 
   useEffect(() => {
-    fetchData();
+    fetchData(false); // False = Jangan paksa refresh (Cek Cache dulu)
   }, []);
 
-  const fetchData = async () => {
+  // ✅ 2. UPDATE LOGIC FETCH DATA
+  const fetchData = async (isManualRefresh = false) => {
     try {
-      const response = await api.get('/siswa/semua-informasi');
-      setData(response.data || []);
+      // Endpoint: /siswa/semua-informasi
+      // Key Storage: ANNOUNCEMENTS_LIST
+      // TTL: 30 Menit (Cukup fresh untuk papan pengumuman)
+      // Force Refresh: True jika ditarik user
+      const cachedData = await fetchWithSmartCache(
+        '/siswa/semua-informasi',
+        'ANNOUNCEMENTS_LIST',
+        30,
+        isManualRefresh,
+      );
+
+      setData(cachedData || []);
     } catch (error) {
       console.log('Error fetching announcements:', error);
     } finally {
@@ -45,9 +58,10 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     }
   };
 
+  // ✅ 3. UPDATE REFRESH HANDLER
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData();
+    fetchData(true); // True = Paksa ambil baru dari server
   };
 
   const filteredData =
@@ -147,15 +161,8 @@ const AnnouncementsScreen = ({ navigation }: any) => {
             </View>
 
             {/* Title & Desc */}
-            <Text className="text-slate-800 font-bold text-[16px] leading-6 mb-1.5">
+            <Text className="text-slate-800 font-bold text-[16px] leading-6 mb-1">
               {item.title}
-            </Text>
-            <Text
-              className="text-slate-500 text-xs leading-5"
-              numberOfLines={2}
-            >
-              {item.desc ||
-                'Ketuk untuk melihat detail informasi selengkapnya...'}
             </Text>
           </View>
 
@@ -281,7 +288,6 @@ const AnnouncementsScreen = ({ navigation }: any) => {
           }
           ListEmptyComponent={
             <View className="items-center justify-center py-20 px-10">
-              {/* Gunakan image placeholder jika Lottie belum siap, atau pastikan path lottie benar */}
               <View className="w-40 h-40 bg-slate-100 rounded-full items-center justify-center mb-6">
                 <Info size={60} color="#cbd5e1" />
               </View>

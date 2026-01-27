@@ -46,6 +46,7 @@ import { MAIN_APP_URL } from '@env';
 import api from '../../services/api';
 import Skeleton from '../../components/Skeleton';
 import StatusModal from '../../components/StatusModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const lockedColumns = [
   'nama',
@@ -586,7 +587,20 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       const response = await api.post('/siswa/update', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      if (response.data.user) {
+        const storageKey = 'USER_PROFILE_DATA';
 
+        // 1. Timpa data lama dengan data baru dari response server
+        await AsyncStorage.setItem(
+          `DATA_${storageKey}`,
+          JSON.stringify(response.data.user),
+        );
+
+        // 2. Reset waktunya jadi "Sekarang", biar dianggap masih segar
+        await AsyncStorage.setItem(`TIME_${storageKey}`, Date.now().toString());
+
+        console.log('✅ [EditProfile] Cache berhasil diperbarui manual!');
+      }
       let message = 'Perubahan data berhasil disimpan.';
       if (
         response.data.pending_request &&

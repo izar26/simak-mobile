@@ -1,67 +1,405 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, RefreshControl, Linking, Dimensions } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+  Dimensions,
+  Platform,
+  Alert,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { getUser, logout } from '../../services/auth';
-import { MAIN_APP_URL, API_URL } from '@env';
-import api from '../../services/api';
-import {
-  User, MapPin, Heart, Truck, Users, FileText, ChevronDown, ChevronUp, ExternalLink, LogOut, Award, Phone, Mail, Edit3, Folder, BookOpen, CreditCard, Printer, Download
-} from 'lucide-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import Skeleton from '../../components/Skeleton';
-import ReactNativeBlobUtil from 'react-native-blob-util';
-import { getToken } from '../../services/auth';
-import { Alert, Platform } from 'react-native';
+import Animated, { FadeIn, FadeInUp, Layout } from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import {
+  User,
+  MapPin,
+  Users,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  LogOut,
+  Award,
+  Phone,
+  Mail,
+  Edit3,
+  BookOpen,
+  Printer,
+  Home,
+  Briefcase,
+  Calendar,
+  CreditCard,
+  Shield,
+} from 'lucide-react-native';
+import { fetchWithSmartCache } from '../../utils/apiCache';
+import { getToken, logout } from '../../services/auth';
+import { MAIN_APP_URL, API_URL } from '@env';
 import StatusModal from '../../components/StatusModal';
+import Skeleton from '../../components/Skeleton';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ✅ TYPES
+interface SiswaData {
+  nama?: string;
+  nisn?: string;
+  nipd?: string;
+  nik?: string;
+  no_kk?: string;
+  jenis_kelamin?: 'L' | 'P';
+  tempat_lahir?: string;
+  tanggal_lahir?: string;
+  agama_id_str?: string;
+  kebutuhan_khusus?: string;
+  nomor_telepon_seluler?: string;
+  no_wa?: string;
+  alamat?: string;
+  rt?: string;
+  rw?: string;
+  kode_pos?: string;
+  desa_kelurahan?: string;
+  kecamatan?: string;
+  kabupaten_kota?: string;
+  nama_ayah?: string;
+  pekerjaan_ayah_id_str?: string;
+  no_wa_ayah?: string;
+  nama_ibu?: string;
+  pekerjaan_ibu_id_str?: string;
+  no_wa_ibu?: string;
+  sekolah_asal?: string;
+  npsn_sekolah_asal?: string;
+  no_seri_ijazah?: string;
+  no_seri_skhun?: string;
+  foto?: string;
+  nama_rombel?: string;
+}
+
+interface UserData {
+  nama?: string;
+  username?: string;
+  email?: string;
+  siswa?: SiswaData;
+}
+
+// ✅ THEME CONFIG (Centralized for consistency)
+const THEME = {
+  male: {
+    primary: 'bg-blue-600',
+    primarySoft: 'bg-blue-50',
+    primaryBorder: 'border-blue-100',
+    primaryText: 'text-blue-600',
+    gradient: ['#3b82f6', '#1d4ed8', '#1e40af'] as const,
+    accent: '#2563eb',
+    lightAccent: '#dbeafe',
+  },
+  female: {
+    primary: 'bg-rose-500',
+    primarySoft: 'bg-rose-50',
+    primaryBorder: 'border-rose-100',
+    primaryText: 'text-rose-600',
+    gradient: ['#f43f5e', '#be123c', '#9f1239'] as const,
+    accent: '#f43f5e',
+    lightAccent: '#ffe4e6',
+  },
+};
+
+// ✅ UTILITY FUNCTIONS (Memoized outside component)
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return '-';
+  }
+};
+
+const getInitials = (name?: string): string => {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+};
+
+// ✅ MEMOIZED SUB-COMPONENTS (Prevent unnecessary re-renders)
+
+const InfoItem = memo(({ label, value, icon: Icon, delay = 0 }: any) => (
+  <Animated.View
+    entering={FadeInUp.delay(delay).duration(400)}
+    className="flex-1 min-w-[48%] mb-4 pr-2"
+  >
+    <View className="flex-row items-center mb-1.5">
+      {Icon && <Icon size={12} color="#94a3b8" style={{ marginRight: 6 }} />}
+      <Text className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+        {label}
+      </Text>
+    </View>
+    <Text
+      className="text-slate-800 text-sm font-semibold leading-5"
+      numberOfLines={2}
+    >
+      {value || '-'}
+    </Text>
+  </Animated.View>
+));
+
+const ContactChip = memo(
+  ({ icon: Icon, label, value, theme, isFemale }: any) => (
+    <View className="flex-row items-center py-3 border-b border-slate-100 last:border-0">
+      <View
+        className={`w-10 h-10 rounded-xl items-center justify-center mr-3`}
+        style={{ backgroundColor: isFemale ? '#ffe4e6' : '#dbeafe' }}
+      >
+        <Icon size={18} color={theme.accent} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-0.5">
+          {label}
+        </Text>
+        <Text className="text-slate-800 text-sm font-bold" numberOfLines={1}>
+          {value || '-'}
+        </Text>
+      </View>
+    </View>
+  ),
+);
+
+const ParentCard = memo(
+  ({ title, name, job, phone, theme, isFemale, delay }: any) => (
+    <Animated.View
+      entering={FadeInUp.delay(delay).duration(400)}
+      className="flex-row items-center bg-slate-50 p-4 rounded-2xl mb-3"
+    >
+      <View
+        className="w-14 h-14 rounded-2xl items-center justify-center mr-4 shadow-sm"
+        style={{ backgroundColor: isFemale ? '#ffe4e6' : '#dbeafe' }}
+      >
+        <Text
+          className={`text-xl font-bold ${
+            isFemale ? 'text-rose-600' : 'text-blue-600'
+          }`}
+        >
+          {title[0]}
+        </Text>
+      </View>
+      <View className="flex-1">
+        <View className="flex-row items-center mb-1">
+          <Text className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mr-2">
+            {title}
+          </Text>
+          {phone && (
+            <View className="flex-row items-center bg-white px-2 py-0.5 rounded-full shadow-sm">
+              <Phone size={10} color={theme.accent} />
+              <Text
+                className={`text-[10px] font-bold ml-1 ${
+                  isFemale ? 'text-rose-600' : 'text-blue-600'
+                }`}
+              >
+                {phone}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text
+          className="text-slate-900 font-bold text-base mb-0.5"
+          numberOfLines={1}
+        >
+          {name || 'Belum diisi'}
+        </Text>
+        <Text className="text-slate-500 text-xs font-medium" numberOfLines={1}>
+          {job || '-'}
+        </Text>
+      </View>
+    </Animated.View>
+  ),
+);
+
+const SectionCard = memo(
+  ({
+    title,
+    icon: Icon,
+    sectionKey,
+    isExpanded,
+    onToggle,
+    children,
+    theme,
+    badge,
+  }: any) => (
+    <Animated.View
+      layout={Layout.springify()}
+      className="bg-white rounded-3xl mb-4 shadow-sm border border-slate-100 overflow-hidden"
+    >
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onToggle(sectionKey)}
+        className="flex-row justify-between items-center p-5"
+      >
+        <View className="flex-row items-center flex-1">
+          <View
+            className="w-12 h-12 rounded-2xl items-center justify-center mr-4 shadow-sm"
+            style={{ backgroundColor: theme.lightAccent }}
+          >
+            <Icon size={22} color={theme.accent} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-slate-900 font-bold text-base">{title}</Text>
+            {badge && (
+              <Text className="text-slate-400 text-xs mt-0.5">{badge}</Text>
+            )}
+          </View>
+        </View>
+        <View
+          className="w-10 h-10 rounded-full items-center justify-center"
+          style={{
+            backgroundColor: isExpanded ? theme.lightAccent : '#f1f5f9',
+          }}
+        >
+          {isExpanded ? (
+            <ChevronUp
+              size={20}
+              color={isExpanded ? theme.accent : '#94a3b8'}
+            />
+          ) : (
+            <ChevronDown size={20} color="#94a3b8" />
+          )}
+        </View>
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <View className="px-5 pb-6">
+          <View className="h-px bg-slate-100 mb-5" />
+          {children}
+        </View>
+      )}
+    </Animated.View>
+  ),
+);
+
+// ✅ MAIN COMPONENT
 const HomeScreen = ({ navigation }: any) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Modal Status State
+  const [imageError, setImageError] = useState(false);
+
   const [modalStatus, setModalStatus] = useState({
     visible: false,
-    type: 'success' as 'success' | 'error' | 'warning' | 'info',
+    type: 'success' as const,
     title: '',
-    message: ''
-  });
-  
-  // Expanded sections state
-  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
-    'identitas': true, 'alamat': false, 'kesejahteraan': false, 'ortu': false, 'riwayat': false
+    message: '',
   });
 
-  const toggleSection = (key: string) => setExpandedSections(prev => ({...prev, [key]: !prev[key]}));
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({
+    identitas: true,
+    alamat: false,
+    ortu: false,
+    riwayat: false,
+  });
 
-  const fetchData = async () => {
+  // ✅ MEMOIZED VALUES (Prevent recalculation)
+  const siswa = useMemo(() => user?.siswa, [user]);
+  const isFemale = useMemo(() => siswa?.jenis_kelamin === 'P', [siswa]);
+  const theme = useMemo(
+    () => (isFemale ? THEME.female : THEME.male),
+    [isFemale],
+  );
+
+  const fotoUrl = useMemo(() => {
+    if (!siswa?.foto || imageError) return null;
+    return `${MAIN_APP_URL}/storage/${siswa.foto}`;
+  }, [siswa?.foto, imageError]);
+
+  const fullAddress = useMemo(() => {
+    if (!siswa) return 'Alamat belum diisi';
+    const parts = [
+      siswa.alamat,
+      `RT ${siswa.rt || '-'} / RW ${siswa.rw || '-'}`,
+      siswa.desa_kelurahan,
+      siswa.kecamatan,
+      siswa.kabupaten_kota,
+      siswa.kode_pos,
+    ].filter(Boolean);
+    return parts.join(', ');
+  }, [siswa]);
+
+  // ✅ CALLBACKS (Stable references)
+  const toggleSection = useCallback((key: string) => {
+    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const fetchData = useCallback(async (isManualRefresh = false) => {
     try {
-      const response = await api.get('/me');
-      setUser(response.data);
+      const data = await fetchWithSmartCache(
+        '/me',
+        'USER_PROFILE_DATA',
+        240, // 4 hours cache
+        isManualRefresh,
+      );
+      setUser(data);
+      setImageError(false); // Reset image error on refresh
     } catch (error) {
-      const localUser = await getUser();
-      setUser(localUser);
+      console.error('Error fetching profile:', error);
+      setModalStatus({
+        visible: true,
+        type: 'error',
+        title: 'Gagal Memuat Data',
+        message: 'Silakan periksa koneksi internet Anda dan coba lagi.',
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  useFocusEffect(useCallback(() => { fetchData(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(false);
+    }, [fetchData]),
+  );
 
-  const onRefresh = () => { setRefreshing(true); fetchData(); };
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData(true);
+  }, [fetchData]);
 
-  const handleCetakBiodata = async () => {
+  const handleCetakBiodata = useCallback(async () => {
+    if (!siswa?.nama) {
+      setModalStatus({
+        visible: true,
+        type: 'warning',
+        title: 'Data Tidak Lengkap',
+        message: 'Nama siswa tidak ditemukan.',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const token = await getToken();
       const { dirs } = ReactNativeBlobUtil.fs;
-      const fileName = `Biodata_${siswa?.nama || 'Siswa'}.pdf`;
-      const path = Platform.OS === 'android' ? `${dirs.DownloadDir}/${fileName}` : `${dirs.DocumentDir}/${fileName}`;
+      const fileName = `Biodata_${siswa.nama.replace(/\s+/g, '_')}.pdf`;
+      const path =
+        Platform.OS === 'android'
+          ? `${dirs.DownloadDir}/${fileName}`
+          : `${dirs.DocumentDir}/${fileName}`;
 
-      ReactNativeBlobUtil.config({
+      await ReactNativeBlobUtil.config({
         fileCache: true,
         addAndroidDownloads: {
           useDownloadManager: true,
@@ -76,306 +414,433 @@ const HomeScreen = ({ navigation }: any) => {
         .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
           Authorization: `Bearer ${token}`,
         })
-        .then((res) => {
+        .then(res => {
           if (Platform.OS === 'ios') {
             ReactNativeBlobUtil.ios.previewDocument(res.path());
           } else {
             setModalStatus({
               visible: true,
               type: 'success',
-              title: 'Berhasil di Unduh!',
-              message: 'Biodata Anda telah tersimpan di folder Download perangkat Anda.'
+              title: 'Unduhan Berhasil!',
+              message: `File tersimpan di folder Download sebagai ${fileName}`,
             });
           }
-        })
-        .catch((err) => {
-          setModalStatus({
-            visible: true,
-            type: 'error',
-            title: 'Gagal Mengunduh',
-            message: 'Terjadi kesalahan saat mencoba mengunduh file. Cek internet Anda.'
-          });
-          console.error(err);
-        })
-        .finally(() => setLoading(false));
+        });
     } catch (error) {
-      setLoading(false);
+      console.error('Download error:', error);
       setModalStatus({
         visible: true,
         type: 'error',
-        title: 'Kesalahan Sistem',
-        message: 'Aplikasi tidak dapat menghubungi layanan cetak saat ini.'
+        title: 'Gagal Mengunduh',
+        message: 'Tidak dapat mengunduh file. Silakan coba lagi.',
       });
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [siswa]);
 
-  const handleLogout = async () => {
-    await logout();
-    navigation.getParent()?.replace('Login');
-  };
+  const handleLogout = useCallback(async () => {
+    Alert.alert(
+      'Konfirmasi Keluar',
+      'Apakah Anda yakin ingin keluar dari aplikasi?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Keluar',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            navigation.getParent()?.replace('Login');
+          },
+        },
+      ],
+    );
+  }, [navigation]);
 
+  // ✅ SKELETON LOADING (Improved)
   if (loading && !user) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="relative bg-slate-200 pb-20 rounded-b-[40px] shadow-lg mb-14">
-           <View className="items-center pt-8 px-6">
-              <Skeleton variant="circle" width={112} height={112} style={{ marginBottom: 16, borderWidth: 4, borderColor: 'white' }} />
-              <Skeleton width={180} height={28} style={{ marginBottom: 8 }} />
-              <Skeleton width={120} height={16} />
-           </View>
+      <SafeAreaView className="flex-1 bg-slate-50">
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={isFemale ? '#be123c' : '#1d4ed8'}
+        />
+        <View className="bg-slate-200 pb-24 rounded-b-[40px]">
+          <View className="items-center pt-12 px-6">
+            <Skeleton
+              variant="circle"
+              width={120}
+              height={120}
+              className="mb-4"
+            />
+            <Skeleton width={200} height={28} className="mb-2 rounded-lg" />
+            <Skeleton width={140} height={16} className="rounded-lg" />
+          </View>
         </View>
-        <ScrollView className="px-4 -mt-14" showsVerticalScrollIndicator={false}>
-           {[1,2,3,4].map(i => (
-              <View key={i} className="bg-white rounded-2xl mb-4 p-4 flex-row items-center justify-between shadow-sm">
-                 <View className="flex-row items-center gap-3">
-                    <Skeleton width={36} height={36} borderRadius={8} />
-                    <Skeleton width={120} height={20} />
-                 </View>
-                 <Skeleton width={20} height={20} borderRadius={10} />
+        <ScrollView
+          className="px-5 -mt-12"
+          showsVerticalScrollIndicator={false}
+        >
+          {[1, 2, 3].map(i => (
+            <View key={i} className="bg-white rounded-2xl mb-4 p-5 shadow-sm">
+              <View className="flex-row items-center mb-4">
+                <Skeleton
+                  width={48}
+                  height={48}
+                  borderRadius={12}
+                  className="mr-4"
+                />
+                <Skeleton width={150} height={20} className="rounded-lg" />
               </View>
-           ))}
+              <View className="h-px bg-slate-100 mb-4" />
+              <View className="flex-row flex-wrap">
+                <Skeleton
+                  width="48%"
+                  height={60}
+                  className="mr-2 mb-2 rounded-xl"
+                />
+                <Skeleton width="48%" height={60} className="rounded-xl" />
+                <Skeleton width="48%" height={60} className="mr-2 rounded-xl" />
+                <Skeleton width="48%" height={60} className="rounded-xl" />
+              </View>
+            </View>
+          ))}
         </ScrollView>
       </SafeAreaView>
     );
   }
 
-  const siswa = user?.siswa;
-  const isFemale = siswa?.jenis_kelamin === 'P';
-  
-  // THEME COLORS
-  const theme = {
-    primary: isFemale ? 'bg-rose-500' : 'bg-blue-600',
-    primarySoft: isFemale ? 'bg-rose-50' : 'bg-blue-50',
-    primaryBorder: isFemale ? 'border-rose-100' : 'border-blue-100',
-    primaryText: isFemale ? 'text-rose-600' : 'text-blue-600',
-    gradient: isFemale ? ['#f43f5e', '#be123c'] : ['#3b82f6', '#1d4ed8'],
-    tabActive: isFemale ? 'bg-rose-500/20 border-rose-500/30' : 'bg-white/20 border-white/30'
-  };
-
-  const fotoUrl = siswa?.foto ? `${MAIN_APP_URL}/storage/${siswa.foto}` : null;
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  };
-
-  const SectionCard = ({ title, icon: Icon, sectionKey, children }: any) => (
-    <View className="bg-white rounded-[28px] mb-4 shadow-sm border border-slate-100 overflow-hidden">
-      <TouchableOpacity 
-        activeOpacity={0.7}
-        onPress={() => toggleSection(sectionKey)}
-        className="flex-row justify-between items-center p-5 bg-white"
-      >
-        <View className="flex-row items-center gap-4">
-          <View className={`${theme.primarySoft} p-2.5 rounded-2xl`}>
-            <Icon size={20} color={isFemale ? '#f43f5e' : '#2563eb'} />
-          </View>
-          <Text className="text-slate-800 font-black text-base tracking-tight">{title}</Text>
-        </View>
-        <View className="bg-slate-50 p-1.5 rounded-full">
-           {expandedSections[sectionKey] ? <ChevronUp size={18} color="#94a3b8" /> : <ChevronDown size={18} color="#94a3b8" />}
-        </View>
-      </TouchableOpacity>
-      
-      {expandedSections[sectionKey] && (
-        <View className="px-5 pb-6 pt-0">
-          <View className="h-[1px] bg-slate-50 mb-5 w-full" />
-          {children}
-        </View>
-      )}
-    </View>
-  );
-
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
-      <ScrollView 
-        contentContainerStyle={{ paddingBottom: 120 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={isFemale ? ['#f43f5e'] : ['#2563eb']} />}
+      <StatusBar barStyle="light-content" backgroundColor={theme.gradient[1]} />
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 140 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.accent]}
+            tintColor={theme.accent}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeIn.duration(600)}>
-        
-        {/* Modern Header Design */}
-        <LinearGradient 
-          colors={theme.gradient}
-          start={{x: 0, y: 0}} end={{x: 1, y: 1}}
-          style={{ borderBottomLeftRadius: 48, borderBottomRightRadius: 48 }}
-          className="relative pb-20 shadow-2xl"
-        >
-          <View className="absolute top-0 right-0 p-10 opacity-10">
-             <Award size={180} color="white" />
-          </View>
-          
-          <View className="absolute top-10 right-6 z-10">
-            <TouchableOpacity 
+        <Animated.View entering={FadeIn.duration(500)}>
+          {/* Enhanced Header with Better Contrast */}
+          <LinearGradient
+            colors={theme.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="relative pb-24 rounded-b-[40px] shadow-2xl"
+          >
+            {/* Decorative Elements */}
+            <View className="absolute top-0 right-0 p-12 opacity-10">
+              <Award size={200} color="white" />
+            </View>
+            <View className="absolute bottom-10 left-5 opacity-10">
+              <Shield size={100} color="white" />
+            </View>
+
+            {/* Edit Button */}
+            <TouchableOpacity
               onPress={() => navigation.navigate('EditProfile', { user })}
-              className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md border border-white/30"
+              className="absolute top-12 right-6 z-10 bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/30 active:scale-95"
+              style={{ elevation: 5 }}
             >
               <Edit3 size={20} color="white" />
             </TouchableOpacity>
-          </View>
-          
-          <View className="items-center pt-10 px-6">
-            <View className="relative">
-              <View className="bg-white p-1.5 rounded-full shadow-2xl mb-5">
-                {fotoUrl ? (
-                  <Image source={{ uri: fotoUrl }} className="w-32 h-32 rounded-full" resizeMode="cover" />
-                ) : (
-                  <View className="w-32 h-32 bg-slate-100 rounded-full items-center justify-center">
-                     <User size={48} color="#94a3b8" />
-                  </View>
+
+            {/* Profile Content */}
+            <View className="items-center pt-12 px-6">
+              <View className="relative mb-6">
+                <View className="bg-white p-1.5 rounded-full shadow-2xl">
+                  {fotoUrl ? (
+                    <Image
+                      source={{ uri: fotoUrl }}
+                      className="w-32 h-32 rounded-full bg-slate-200"
+                      resizeMode="cover"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <View
+                      className="w-32 h-32 rounded-full items-center justify-center"
+                      style={{
+                        backgroundColor: isFemale ? '#ffe4e6' : '#dbeafe',
+                      }}
+                    >
+                      <Text
+                        className={`text-3xl font-bold ${theme.primaryText}`}
+                      >
+                        {getInitials(siswa?.nama || user?.nama)}
+                      </Text>
+                    </View>
+                  )}
+                  {/* Online Indicator */}
+                  <View className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white" />
+                </View>
+              </View>
+
+              <Text
+                className="text-white text-2xl font-bold text-center mb-1"
+                numberOfLines={2}
+              >
+                {siswa?.nama || user?.nama}
+              </Text>
+
+              <View className="flex-row items-center bg-white/20 px-4 py-1.5 rounded-full mb-4 backdrop-blur-sm">
+                <CreditCard size={14} color="white" className="mr-2" />
+                <Text className="text-white/90 font-semibold text-sm">
+                  {siswa?.nisn || user?.username}
+                </Text>
+                {siswa?.nipd && (
+                  <Text className="text-white/70 text-sm ml-1">
+                    • {siswa.nipd}
+                  </Text>
                 )}
               </View>
-              {/* Indikator Online Dihapus Sesuai Permintaan */}
-            </View>
 
-            <Text className="text-white text-2xl font-black text-center mb-1 tracking-tight">
-              {siswa?.nama || user?.nama}
-            </Text>
-            <Text className="text-white/80 font-bold text-sm mb-5 tracking-wide">
-              {siswa?.nisn ? `${siswa.nisn} • ${siswa?.nipd || '-'}` : user?.username}
-            </Text>
-            
-            <View className={`${theme.tabActive} backdrop-blur-md px-5 py-2 rounded-2xl border flex-row items-center gap-2 shadow-sm`}>
-               <Award size={14} color="white" />
-               <Text className="text-white text-xs font-black uppercase tracking-widest">
-                 {siswa?.nama_rombel || 'Belum Masuk Kelas'}
-               </Text>
+              {siswa?.nama_rombel && (
+                <View className="bg-white/20 px-5 py-2 rounded-2xl border border-white/30 flex-row items-center backdrop-blur-sm">
+                  <Award size={16} color="white" className="mr-2" />
+                  <Text className="text-white font-bold text-sm tracking-wide">
+                    {siswa.nama_rombel}
+                  </Text>
+                </View>
+              )}
             </View>
+          </LinearGradient>
+
+          {/* Content */}
+          <View className="px-5 -mt-12">
+            {/* Identity Section */}
+            <SectionCard
+              title="Identitas & Kontak"
+              icon={User}
+              sectionKey="identitas"
+              isExpanded={expandedSections.identitas}
+              onToggle={toggleSection}
+              theme={theme}
+              badge="Data Pribadi"
+            >
+              <View className="flex-row flex-wrap -mr-2">
+                <InfoItem
+                  label="NIK"
+                  value={siswa?.nik}
+                  icon={CreditCard}
+                  delay={0}
+                />
+                <InfoItem
+                  label="No. KK"
+                  value={siswa?.no_kk}
+                  icon={Shield}
+                  delay={50}
+                />
+                <InfoItem
+                  label="Jenis Kelamin"
+                  value={
+                    siswa?.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'
+                  }
+                  icon={User}
+                  delay={100}
+                />
+                <InfoItem
+                  label="Tempat Lahir"
+                  value={siswa?.tempat_lahir}
+                  icon={MapPin}
+                  delay={150}
+                />
+                <InfoItem
+                  label="Tanggal Lahir"
+                  value={formatDate(siswa?.tanggal_lahir)}
+                  icon={Calendar}
+                  delay={200}
+                />
+                <InfoItem
+                  label="Agama"
+                  value={siswa?.agama_id_str}
+                  icon={Shield}
+                  delay={250}
+                />
+              </View>
+
+              <View
+                className="mt-4 rounded-2xl p-4 border"
+                style={{
+                  backgroundColor: theme.lightAccent,
+                  borderColor: isFemale ? '#fecdd3' : '#bfdbfe',
+                }}
+              >
+                <ContactChip
+                  icon={Mail}
+                  label="Email"
+                  value={user?.email || user?.username}
+                  theme={theme}
+                  isFemale={isFemale}
+                />
+                <ContactChip
+                  icon={Phone}
+                  label="Telepon"
+                  value={siswa?.nomor_telepon_seluler}
+                  theme={theme}
+                  isFemale={isFemale}
+                />
+                <ContactChip
+                  icon={Phone}
+                  label="WhatsApp"
+                  value={siswa?.no_wa}
+                  theme={theme}
+                  isFemale={isFemale}
+                />
+              </View>
+            </SectionCard>
+
+            {/* Address Section */}
+            <SectionCard
+              title="Alamat Lengkap"
+              icon={Home}
+              sectionKey="alamat"
+              isExpanded={expandedSections.alamat}
+              onToggle={toggleSection}
+              theme={theme}
+              badge={siswa?.kode_pos}
+            >
+              <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
+                <Text className="text-slate-700 font-medium text-sm leading-6">
+                  {fullAddress}
+                </Text>
+              </View>
+
+              <View className="flex-row flex-wrap">
+                <InfoItem
+                  label="RT / RW"
+                  value={`${siswa?.rt || '-'} / ${siswa?.rw || '-'}`}
+                />
+                <InfoItem label="Kode Pos" value={siswa?.kode_pos} />
+                <InfoItem
+                  label="Desa/Kelurahan"
+                  value={siswa?.desa_kelurahan}
+                />
+                <InfoItem label="Kecamatan" value={siswa?.kecamatan} />
+                <InfoItem
+                  label="Kabupaten/Kota"
+                  value={siswa?.kabupaten_kota}
+                  width="100%"
+                />
+              </View>
+            </SectionCard>
+
+            {/* Parents Section */}
+            <SectionCard
+              title="Data Orang Tua"
+              icon={Users}
+              sectionKey="ortu"
+              isExpanded={expandedSections.ortu}
+              onToggle={toggleSection}
+              theme={theme}
+            >
+              <ParentCard
+                title="Ayah"
+                name={siswa?.nama_ayah}
+                job={siswa?.pekerjaan_ayah_id_str}
+                phone={siswa?.no_wa_ayah}
+                theme={theme}
+                isFemale={isFemale}
+                delay={0}
+              />
+              <ParentCard
+                title="Ibu"
+                name={siswa?.nama_ibu}
+                job={siswa?.pekerjaan_ibu_id_str}
+                phone={siswa?.no_wa_ibu}
+                theme={theme}
+                isFemale={isFemale}
+                delay={100}
+              />
+            </SectionCard>
+
+            {/* Education History */}
+            <SectionCard
+              title="Riwayat Pendidikan"
+              icon={BookOpen}
+              sectionKey="riwayat"
+              isExpanded={expandedSections.riwayat}
+              onToggle={toggleSection}
+              theme={theme}
+            >
+              <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-3">
+                <Text className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-1">
+                  Sekolah Asal
+                </Text>
+                <Text className="text-slate-800 font-bold text-base mb-1">
+                  {siswa?.sekolah_asal || '-'}
+                </Text>
+                <Text className="text-slate-500 text-xs">
+                  NPSN: {siswa?.npsn_sekolah_asal || '-'}
+                </Text>
+              </View>
+
+              <View className="flex-row flex-wrap">
+                <InfoItem
+                  label="No. Ijazah"
+                  value={siswa?.no_seri_ijazah}
+                  icon={FileText}
+                />
+                <InfoItem
+                  label="No. SKHUN"
+                  value={siswa?.no_seri_skhun}
+                  icon={FileText}
+                />
+              </View>
+            </SectionCard>
+
+            {/* Action Buttons */}
+            <Animated.View entering={FadeInUp.delay(400)} className="mt-2">
+              <TouchableOpacity
+                className={`${theme.primary} p-5 rounded-2xl flex-row justify-center items-center shadow-lg mb-4 active:opacity-90`}
+                onPress={handleCetakBiodata}
+                disabled={loading}
+                style={{ elevation: 4 }}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <Printer size={22} color="white" />
+                    <Text className="text-white font-bold ml-3 text-sm tracking-wide">
+                      Unduh Biodata (PDF)
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="bg-white p-5 rounded-2xl border border-red-100 flex-row justify-center items-center shadow-sm mb-6 active:bg-red-50"
+                onPress={handleLogout}
+              >
+                <LogOut size={22} color="#ef4444" />
+                <Text className="text-red-600 font-bold ml-3 text-sm tracking-wide">
+                  Keluar Aplikasi
+                </Text>
+              </TouchableOpacity>
+
+              <Text className="text-slate-400 text-center text-xs font-medium pb-4">
+                Simak Mobile v1.0.0 • {new Date().getFullYear()}
+              </Text>
+            </Animated.View>
           </View>
-        </LinearGradient>
-
-        {/* Content Container */}
-        <View className="px-5 -mt-14">
-          
-          <SectionCard title="Identitas & Kontak" icon={User} sectionKey="identitas">
-            <View className="flex-row flex-wrap">
-              <InfoBox label="NIK" value={siswa?.nik} width="50%" />
-              <InfoBox label="Nomor KK" value={siswa?.no_kk} width="50%" />
-              <InfoBox label="Jenis Kelamin" value={siswa?.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'} width="50%" />
-              <InfoBox label="Tempat Lahir" value={siswa?.tempat_lahir} width="50%" />
-              <InfoBox label="Tanggal Lahir" value={formatDate(siswa?.tanggal_lahir)} width="50%" />
-              <InfoBox label="Agama" value={siswa?.agama_id_str} width="50%" />
-              <InfoBox label="Kewarganegaraan" value="Indonesia" width="50%" />
-              <InfoBox label="Kebutuhan Khusus" value={siswa?.kebutuhan_khusus} width="50%" />
-            </View>
-            
-            <View className={`${theme.primarySoft} p-4 rounded-[20px] border ${theme.primaryBorder} mt-4`}>
-              <ContactRow icon={Mail} label="Email Akun" value={user?.username || user?.email} isFemale={isFemale} />
-              <ContactRow icon={Phone} label="HP Siswa" value={siswa?.nomor_telepon_seluler} isFemale={isFemale} />
-              <ContactRow icon={Phone} label="WhatsApp" value={siswa?.no_wa} isFemale={isFemale} />
-            </View>
-          </SectionCard>
-
-          <SectionCard title="Alamat Lengkap" icon={MapPin} sectionKey="alamat">
-            <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
-               <Text className="text-slate-700 font-bold text-sm leading-5">
-                 {user?.alamat || 'Alamat jalan belum diisi'}
-               </Text>
-            </View>
-            <View className="flex-row flex-wrap bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <InfoBox label="RT / RW" value={`${siswa?.rt || '-'} / ${siswa?.rw || '-'}`} width="50%" />
-              <InfoBox label="Kode Pos" value={siswa?.kode_pos} width="50%" />
-              <InfoBox label="Desa/Kel" value={siswa?.desa_kelurahan} width="50%" />
-              <InfoBox label="Kecamatan" value={siswa?.kecamatan} width="50%" />
-              <InfoBox label="Kab/Kota" value={siswa?.kabupaten_kota} width="100%" />
-            </View>
-          </SectionCard>
-
-          <SectionCard title="Data Orang Tua" icon={Users} sectionKey="ortu">
-            <View className="gap-6">
-              <ParentInfo title="Ayah" name={siswa?.nama_ayah} job={siswa?.pekerjaan_ayah_id_str} phone={siswa?.no_wa_ayah} isFemale={isFemale} />
-              <View className="h-[1px] bg-slate-50 w-full" />
-              <ParentInfo title="Ibu" name={siswa?.nama_ibu} job={siswa?.pekerjaan_ibu_id_str} phone={siswa?.no_wa_ibu} isFemale={isFemale} />
-            </View>
-          </SectionCard>
-
-          <SectionCard title="Pendidikan Asal" icon={BookOpen} sectionKey="riwayat">
-            <InfoBox label="Sekolah Asal" value={siswa?.sekolah_asal} />
-            <InfoBox label="NPSN Asal" value={siswa?.npsn_sekolah_asal} />
-            <View className="flex-row flex-wrap mt-2">
-               <InfoBox label="No. Ijazah" value={siswa?.no_seri_ijazah} width="50%" />
-               <InfoBox label="No. SKHUN" value={siswa?.no_seri_skhun} width="50%" />
-            </View>
-          </SectionCard>
-
-          <TouchableOpacity
-            className={`${theme.primary} p-5 rounded-[24px] flex-row justify-center items-center shadow-lg mb-4 active:opacity-90`}
-            onPress={handleCetakBiodata}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <>
-                <Printer size={20} color="white" />
-                <Text className="text-white font-black ml-3 uppercase tracking-widest text-xs">Unduh Biodata (PDF)</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="bg-white p-5 rounded-[24px] border border-red-100 flex-row justify-center items-center shadow-sm mb-6 active:bg-red-50"
-            onPress={handleLogout}
-          >
-            <LogOut size={20} color="#ef4444" />
-            <Text className="text-red-600 font-black ml-3 uppercase tracking-widest text-xs">Keluar Aplikasi</Text>
-          </TouchableOpacity>
-          
-          <Text className="text-slate-400 text-center text-[10px] font-bold uppercase tracking-widest pb-4">Simak Mobile v1.0.0</Text>
-        </View>
-
         </Animated.View>
       </ScrollView>
 
-      {/* MODAL STATUS GLOBAL */}
-      <StatusModal 
+      <StatusModal
         visible={modalStatus.visible}
         type={modalStatus.type}
         title={modalStatus.title}
         message={modalStatus.message}
-        onClose={() => setModalStatus({ ...modalStatus, visible: false })}
+        onClose={() => setModalStatus(prev => ({ ...prev, visible: false }))}
       />
     </SafeAreaView>
   );
 };
 
-// UI Components Helpers
-const InfoBox = ({ label, value, width = '100%' }: any) => (
-  <View style={{ width }} className="mb-4 pr-2">
-    <Text className="text-slate-400 text-[10px] uppercase font-black tracking-tighter mb-1">{label}</Text>
-    <Text className="text-slate-800 text-sm font-bold leading-4">{value || '-'}</Text>
-  </View>
-);
-
-const ContactRow = ({ icon: Icon, label, value, isFemale }: any) => (
-  <View className="flex-row items-center py-2.5">
-    <View className={`p-1.5 rounded-lg ${isFemale ? 'bg-rose-100' : 'bg-blue-100'} mr-3`}>
-       <Icon size={14} color={isFemale ? '#f43f5e' : '#2563eb'} />
-    </View>
-    <Text className="text-slate-500 text-xs font-bold flex-1">{label}</Text>
-    <Text className="text-slate-800 text-xs font-black">{value || '-'}</Text>
-  </View>
-);
-
-const ParentInfo = ({ title, name, job, phone, isFemale }: any) => (
-  <View className="flex-row items-center">
-    <View className={`w-12 h-12 rounded-2xl ${isFemale ? 'bg-rose-100' : 'bg-blue-100'} items-center justify-center mr-4`}>
-      <Text className={`${isFemale ? 'text-rose-600' : 'text-blue-600'} font-black text-lg`}>{title.substring(0,1)}</Text>
-    </View>
-    <View className="flex-1">
-      <Text className="text-slate-400 text-[9px] uppercase font-black tracking-widest mb-0.5">{title}</Text>
-      <Text className="text-slate-800 font-black text-base mb-0.5">{name || '-'}</Text>
-      <Text className="text-slate-500 text-xs font-bold">{job || '-'}</Text>
-      {phone && (
-        <View className="flex-row items-center mt-1.5">
-           <Phone size={10} color={isFemale ? '#f43f5e' : '#2563eb'} />
-           <Text className={`${isFemale ? 'text-rose-600' : 'text-blue-600'} text-[11px] font-black ml-1.5`}>{phone}</Text>
-        </View>
-      )}
-    </View>
-  </View>
-);
-
-export default HomeScreen;
+export default memo(HomeScreen);
