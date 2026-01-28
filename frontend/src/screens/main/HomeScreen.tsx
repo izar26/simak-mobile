@@ -393,9 +393,14 @@ const HomeScreen = ({ navigation }: any) => {
   // State untuk Modal Konfirmasi Logout
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const [modalStatus, setModalStatus] = useState({
+  const [modalStatus, setModalStatus] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning'; // 👈 Ini kuncinya, kita izinkan dua kata ini
+    title: string;
+    message: string;
+  }>({
     visible: false,
-    type: 'success' as const,
+    type: 'success',
     title: '',
     message: '',
   });
@@ -620,7 +625,7 @@ const HomeScreen = ({ navigation }: any) => {
         <Animated.View entering={FadeIn.duration(500)}>
           {/* Header */}
           <LinearGradient
-            colors={theme.gradient}
+            colors={(theme.gradient || ['#2563eb', '#1e40af']) as any}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             className="relative pb-24 rounded-b-[40px] shadow-2xl"
@@ -912,7 +917,7 @@ const HomeScreen = ({ navigation }: any) => {
               </TouchableOpacity>
 
               <Text className="text-slate-400 text-center text-xs font-medium pb-4">
-                Simak Mobile v1.0.0 • {new Date().getFullYear()}
+                Simak Mobile v1.2.0 • {new Date().getFullYear()}
               </Text>
             </Animated.View>
           </View>

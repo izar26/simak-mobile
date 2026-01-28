@@ -25,7 +25,7 @@ import {
   Image as ImageIcon,
   X,
 } from 'lucide-react-native';
-import { pick, types, isCancel } from '@react-native-documents/picker';
+import { pick, types } from '@react-native-documents/picker';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import api from '../../services/api';
@@ -268,7 +268,9 @@ const BerkasScreen = ({ navigation, route }: any) => {
         size: file.size || 0,
       });
     } catch (err: any) {
-      if (!isCancel(err)) console.error(err);
+      if (err?.message !== 'User cancelled document picker') {
+        console.error(err);
+      }
     }
   };
 

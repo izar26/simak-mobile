@@ -3,6 +3,9 @@ module.exports = {
     'module:@react-native/babel-preset',
     'nativewind/babel',
   ],
+  env: {
+    plugins: ['transform-remove-console'],
+  },
   plugins: [
     [
       "module:react-native-dotenv",

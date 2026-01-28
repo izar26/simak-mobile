@@ -445,7 +445,7 @@ const RegionPicker = ({ formData, onChange }: any) => {
         icon={MapPin}
         value={formData.desa_kelurahan}
         options={villages.map(v => v.name)}
-        onSelect={(k, v) => onChange(k, v)}
+        onSelect={(k: any, v: any) => onChange(k, v)}
       />
     </>
   );

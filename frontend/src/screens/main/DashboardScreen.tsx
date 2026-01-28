@@ -807,34 +807,33 @@ const DashboardSkeleton = () => (
       data={[1]}
       renderItem={() => (
         <>
-          <View className="px-6 mt-2 mb-8">
+          <View className="px-6 mt-2 mb-8 relative">
             <Skeleton
               width="100%"
               height={220}
               borderRadius={32}
               style={{ backgroundColor: '#e2e8f0' }}
-            >
-              <View className="absolute bottom-4 left-4 right-4">
-                <View className="flex-row gap-2 bg-black/5 p-2 rounded-3xl">
-                  {[1, 2, 3, 4].map((_, i) => (
-                    <View key={i} className="flex-1 items-center py-2">
-                      <Skeleton
-                        variant="circle"
-                        width={32}
-                        height={32}
-                        style={{ marginBottom: 4 }}
-                      />
-                      <Skeleton
-                        width={30}
-                        height={16}
-                        style={{ marginBottom: 2 }}
-                      />
-                      <Skeleton width={40} height={10} />
-                    </View>
-                  ))}
-                </View>
+            />
+            <View className="absolute bottom-4 left-4 right-4">
+              <View className="flex-row gap-2 bg-black/5 p-2 rounded-3xl">
+                {[1, 2, 3, 4].map((_, i) => (
+                  <View key={i} className="flex-1 items-center py-2">
+                    <Skeleton
+                      variant="circle"
+                      width={32}
+                      height={32}
+                      style={{ marginBottom: 4 }}
+                    />
+                    <Skeleton
+                      width={30}
+                      height={16}
+                      style={{ marginBottom: 2 }}
+                    />
+                    <Skeleton width={40} height={10} />
+                  </View>
+                ))}
               </View>
-            </Skeleton>
+            </View>
           </View>
 
           <View className="px-6 mb-8">
@@ -871,31 +870,30 @@ const DashboardSkeleton = () => (
                     height={160}
                     borderRadius={24}
                     style={{ backgroundColor: '#f1f5f9' }}
-                  >
-                    <View className="p-5 h-full justify-between">
-                      <View className="flex-row justify-between items-start">
-                        <Skeleton width={80} height={28} borderRadius={20} />
-                        <Skeleton width={50} height={24} borderRadius={12} />
-                      </View>
-                      <View>
-                        <Skeleton
-                          width={200}
-                          height={24}
-                          style={{ marginBottom: 8 }}
-                        />
-                        <Skeleton width={160} height={16} />
-                      </View>
-                      <View className="flex-row items-center">
-                        <Skeleton
-                          variant="circle"
-                          width={24}
-                          height={24}
-                          style={{ marginRight: 8 }}
-                        />
-                        <Skeleton width={100} height={14} />
-                      </View>
+                  />
+                  <View className="p-5 h-full justify-between">
+                    <View className="flex-row justify-between items-start">
+                      <Skeleton width={80} height={28} borderRadius={20} />
+                      <Skeleton width={50} height={24} borderRadius={12} />
                     </View>
-                  </Skeleton>
+                    <View>
+                      <Skeleton
+                        width={200}
+                        height={24}
+                        style={{ marginBottom: 8 }}
+                      />
+                      <Skeleton width={160} height={16} />
+                    </View>
+                    <View className="flex-row items-center">
+                      <Skeleton
+                        variant="circle"
+                        width={24}
+                        height={24}
+                        style={{ marginRight: 8 }}
+                      />
+                      <Skeleton width={100} height={14} />
+                    </View>
+                  </View>
                 </View>
               )}
             />

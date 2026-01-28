@@ -1,117 +1,129 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import EncryptedStorage from 'react-native-encrypted-storage';
 import axios from 'axios';
-import { MAIN_APP_URL } from '@env'; // Sesuaikan config env
+import { MAIN_APP_URL } from '@env'; // Pastikan library dotenv sudah setup
 
-export const fetchWithSmartCache = async (endpoint: string, key: string, ttlMinutes: number, forceRefresh = false) => {
+export const fetchWithSmartCache = async (
+  endpoint: string,
+  key: string,
+  ttlMinutes: number,
+  forceRefresh = false,
+) => {
   const STORAGE_KEY = `CACHE_${key}`;
-  const META_KEY = `META_${key}`; // Menyimpan ETag dan Waktu
+  const META_KEY = `META_${key}`; // Menyimpan ETag dan Timestamp
 
   try {
-    // 1. Ambil Data Lokal (Cache)
+    // 1. Cek Data Lokal (Cache) di Gudang Biasa
     const cachedData = await AsyncStorage.getItem(STORAGE_KEY);
     const cachedMeta = await AsyncStorage.getItem(META_KEY);
-    
-    let etag = null;
-    let isValid = false;
 
-    if (cachedData && cachedMeta) {
+    let etag = null;
+    let isExpired = false;
+
+    if (cachedMeta) {
       const meta = JSON.parse(cachedMeta);
       const now = new Date().getTime();
       const expiry = meta.timestamp + ttlMinutes * 60 * 1000;
-      
-      isValid = now < expiry; // Cek apakah TTL masih berlaku
-      etag = meta.etag;       // Ambil ETag terakhir
+
+      isExpired = now > expiry; // Cek apakah data sudah basi
+      etag = meta.etag; // Ambil ETag terakhir
     }
 
-   const allKeys = await AsyncStorage.getAllKeys();
+    // Jika data masih segar (belum expired) dan tidak dipaksa refresh, pakai cache aja (Super Cepat)
+    if (!forceRefresh && !isExpired && cachedData) {
+      console.log(`[SmartCache] Pakai Cache Lokal (Valid): ${key}`);
+      return JSON.parse(cachedData);
+    }
 
-   // 2. Coba ambil token (Kita tebak dulu nama-nama umum)
-   // Coba tebak key: 'user_data', 'token', 'user', 'auth'
-   const values = await AsyncStorage.multiGet([
-     'user_data',
-     'token',
-     'user',
-     'auth',
-   ]);
+    // --- BAGIAN KEAMANAN: AMBIL TOKEN ---
+    let token = '';
+    try {
+      // Prioritas 1: Ambil dari Brankas Aman (EncryptedStorage)
+      const session = await EncryptedStorage.getItem('user_session');
+      if (session) {
+        const parsedSession = JSON.parse(session);
+        token = parsedSession.token;
+      }
+    } catch (e) {
+      console.warn('[SmartCache] Gagal akses EncryptedStorage:', e);
+    }
 
-   // --- LOGIC PENGAMBILAN TOKEN SEMENTARA ---
-   let token = '';
+    // Prioritas 2: Fallback ke Gudang Lama (Jaga-jaga user belum login ulang setelah update)
+    if (!token) {
+      token = (await AsyncStorage.getItem('token')) || '';
+    }
+    // ------------------------------------
 
-   // CONTOH 1: Jika key-nya 'user_data' dan isinya JSON { token: "..." }
-   const userRaw = await AsyncStorage.getItem('user_data');
-   if (userRaw) {
-     try {
-       const user = JSON.parse(userRaw);
-       token = user.token || user.access_token; // Coba cari properti token
-     } catch (e) {
-       // Kalau bukan JSON, mungkin langsung string token?
-       token = userRaw;
-     }
-   }
+    const headers: any = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    };
 
-   // CONTOH 2: Jika login menyimpan langsung dengan key 'token'
-   if (!token) {
-     token = (await AsyncStorage.getItem('token')) || '';
-   }
+    // Kirim ETag ke server: "Hei server, data saya kodenya ini. Masih sama gak?"
+    if (etag) {
+      headers['If-None-Match'] = etag;
+      headers['X-ETag'] = etag; // Trik khusus untuk Shared Hosting
+    }
 
+    console.log(`[SmartCache] Fetching Server: ${endpoint}`);
 
-   const headers: any = {
-     Authorization: `Bearer ${token}`,
-     Accept: 'application/json',
-   };
-if (etag) {
-  // Kirim dua-duanya biar aman (Server akan baca salah satu)
-  headers['If-None-Match'] = etag;
-  headers['X-ETag'] = etag;
-}
-
-    const response = await axios.get(`${MAIN_APP_URL}/api${endpoint}`, { 
-        headers,
-        validateStatus: (status) => status >= 200 && status < 400 // Izinkan status 304 dianggap sukses
+    // Request ke Server
+    const response = await axios.get(`${MAIN_APP_URL}/api${endpoint}`, {
+      headers,
+      validateStatus: status => status >= 200 && status < 400, // Izinkan status 304 dianggap sukses
     });
 
+    // KASUS 1: Data Tidak Berubah (Hemat Kuota)
     if (response.status === 304) {
-        console.log(`[SmartCache] 304 Not Modified. Pakai Data Lokal.`);
-        if (cachedMeta) {
-            const meta = JSON.parse(cachedMeta);
-            meta.timestamp = new Date().getTime(); 
-            await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
-        }
-        return JSON.parse(cachedData!); // Kembalikan data lama
+      console.log(`[SmartCache] 304 Not Modified. Pakai Data Lama.`);
+      // Perbarui timestamp agar TTL reset (diperpanjang umurnya)
+      if (cachedMeta) {
+        const meta = JSON.parse(cachedMeta);
+        meta.timestamp = new Date().getTime();
+        await AsyncStorage.setItem(META_KEY, JSON.stringify(meta));
+      }
+      return JSON.parse(cachedData!); // Kembalikan data lokal
     }
 
-  if (response.status === 200) {
-    const newData = response.data;
+    // KASUS 2: Data Baru Diterima (200 OK)
+    if (response.status === 200) {
+      console.log(`[SmartCache] 200 OK. Simpan Data Baru.`);
+      const newData = response.data;
 
-    // 👇 PERBAIKAN: Cek huruf besar ATAU huruf kecil
-   const newEtag =
-     response.headers['x-etag'] ||
-     response.headers['X-ETag'] ||
-     response.headers['etag'];
+      // Cek header ETag (baik yang standar maupun kustom X-ETag)
+      const newEtag =
+        response.headers['x-etag'] ||
+        response.headers['etag'] ||
+        response.headers['ETag'];
 
-    
+      if (newEtag) {
+        // Simpan Data + Meta ETag
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        await AsyncStorage.setItem(
+          META_KEY,
+          JSON.stringify({
+            timestamp: new Date().getTime(),
+            etag: newEtag,
+          }),
+        );
+      } else {
+        // Kalau server lupa kirim ETag, simpan datanya saja
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      }
 
-    if (newEtag) {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-      await AsyncStorage.setItem(
-        META_KEY,
-        JSON.stringify({
-          timestamp: new Date().getTime(),
-          etag: newEtag, // Simpan
-        }),
-      );
-    } else {
-      // Kalau server lupa kirim ETag, kita simpan datanya saja tanpa meta ETag
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+      return newData;
     }
-
-    return newData;
-  }
-
   } catch (error) {
-    console.warn(`[SmartCache] Error/Offline: ${key}`, error);
+    console.warn(`[SmartCache] Error/Offline (${key}):`, error);
+
+    // Fallback: Jika offline/error, paksa pakai data cache yang ada (meski sudah expired)
     const fallbackData = await AsyncStorage.getItem(STORAGE_KEY);
-    if (fallbackData) return JSON.parse(fallbackData);
+    if (fallbackData) {
+      console.log(`[SmartCache] Menggunakan data offline.`);
+      return JSON.parse(fallbackData);
+    }
+
+    // Kalau tidak ada cache sama sekali, baru lempar error
     throw error;
   }
 };
