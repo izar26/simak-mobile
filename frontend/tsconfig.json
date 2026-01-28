@@ -9,7 +9,7 @@
     "**/*.ts",
     "**/*.tsx",
     "nativewind-env.d.ts"
-, "src/utils/apiCache.js"  ],
+, "src/utils/apiCache.ts"  ],
   "exclude": [
     "**/node_modules",
     "**/Pods"
