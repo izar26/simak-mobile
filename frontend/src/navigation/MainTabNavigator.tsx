@@ -92,6 +92,17 @@ const MainTabNavigator = () => {
           ),
         }}
       />
+      {/* <Tab.Screen
+      name='Pelanggaran'
+      component={PelanggaranScreen}
+      options={{
+        tabBarIcon: ({color, size, focused}) => (
+          <View className={`p-2 rounded-xl ${focused ? 'bg-blue-50' : 'bg-transparent'}`}>
+            <User color={color} size={22} strokeWidth={focused ? 2.5 : 2} />
+          </View> 
+        ),
+      }}
+      /> */}
     </Tab.Navigator>
   );
 };

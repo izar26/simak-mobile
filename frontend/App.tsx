@@ -16,7 +16,10 @@ import BerkasScreen from './src/screens/main/BerkasScreen';
 import StudentCardScreen from './src/screens/main/StudentCardScreen';
 import NotificationScreen from './src/screens/NotificationScreen';
 import AnnouncementsScreen from './src/screens/AnnouncementsScreen';
+import PelanggaranScreen from './src/screens/main/PelanggaranScreen';
 import AnnouncementDetailScreen from './src/screens/AnnouncementDetailScreen'; // New
+import KeuanganScreen from './src/screens/main/KeuanganScreen';
+import UnduhanScreen from './src/screens/main/UnduhanScreen';
 import { getToken } from './src/services/auth';
 
 import { API_URL, MAIN_APP_URL } from '@env';
@@ -172,7 +175,11 @@ function App() {
             <Stack.Screen name="KartuPelajar" component={StudentCardScreen} options={{ animation: 'slide_from_bottom' }} />
             <Stack.Screen name="Notifikasi" component={NotificationScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="Pengumuman" component={AnnouncementsScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="Pelanggaran" component={PelanggaranScreen} options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="DetailPengumuman" component={AnnouncementDetailScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="Keuangan" component={KeuanganScreen} options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="Unduhan" component={UnduhanScreen} options={{ animation: 'slide_from_right' }} />
+
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>

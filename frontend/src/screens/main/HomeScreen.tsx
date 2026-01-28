@@ -9,12 +9,23 @@ import {
   RefreshControl,
   Dimensions,
   Platform,
-  Alert,
   StatusBar,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import Animated, { FadeIn, FadeInUp, Layout } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  FadeOutUp,
+  Layout,
+  FadeInDown,
+  FadeOutDown,
+  ZoomIn, // Tambahan import
+  ZoomOut, // Tambahan import
+  Easing, // Tambahan import untuk kurva animasi halus
+} from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import {
@@ -32,10 +43,11 @@ import {
   BookOpen,
   Printer,
   Home,
-  Briefcase,
   Calendar,
   CreditCard,
   Shield,
+  AlertTriangle,
+  X,
 } from 'lucide-react-native';
 import { fetchWithSmartCache } from '../../utils/apiCache';
 import { getToken, logout } from '../../services/auth';
@@ -87,7 +99,7 @@ interface UserData {
   siswa?: SiswaData;
 }
 
-// ✅ THEME CONFIG (Centralized for consistency)
+// ✅ THEME CONFIG
 const THEME = {
   male: {
     primary: 'bg-blue-600',
@@ -109,7 +121,7 @@ const THEME = {
   },
 };
 
-// ✅ UTILITY FUNCTIONS (Memoized outside component)
+// ✅ UTILITY FUNCTIONS
 const formatDate = (dateString?: string): string => {
   if (!dateString) return '-';
   try {
@@ -135,7 +147,79 @@ const getInitials = (name?: string): string => {
     .toUpperCase();
 };
 
-// ✅ MEMOIZED SUB-COMPONENTS (Prevent unnecessary re-renders)
+const ConfirmModal = ({
+  visible,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Ya, Lanjutkan',
+  cancelText = 'Batal',
+  isDestructive = false,
+}: any) => {
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View className="flex-1 bg-black/60 justify-center items-center px-6">
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View className="absolute inset-0" />
+        </TouchableWithoutFeedback>
+
+        <Animated.View
+          // GANTI DARI SINI: Hapus springify, ganti dengan duration & easing
+          entering={FadeInUp.duration(300).easing(Easing.out(Easing.cubic))}
+          exiting={FadeOutDown.duration(200)}
+          // SAMPAI SINI
+          className="bg-white w-full rounded-3xl p-6 shadow-2xl items-center"
+        >
+          <View
+            className={`w-16 h-16 rounded-full items-center justify-center mb-4 ${
+              isDestructive ? 'bg-red-50' : 'bg-blue-50'
+            }`}
+          >
+            {isDestructive ? (
+              <LogOut size={32} color="#ef4444" />
+            ) : (
+              <AlertTriangle size={32} color="#3b82f6" />
+            )}
+          </View>
+
+          <Text className="text-slate-900 font-black text-xl text-center mb-2">
+            {title}
+          </Text>
+          <Text className="text-slate-500 text-sm text-center font-medium leading-5 mb-8 px-4">
+            {message}
+          </Text>
+
+          <View className="flex-row gap-3 w-full">
+            <TouchableOpacity
+              onPress={onClose}
+              className="flex-1 py-3.5 bg-slate-100 rounded-2xl items-center justify-center active:opacity-80"
+            >
+              <Text className="text-slate-600 font-bold text-sm">
+                {cancelText}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={onConfirm}
+              className={`flex-1 py-3.5 rounded-2xl items-center justify-center active:opacity-80 ${
+                isDestructive
+                  ? 'bg-red-500 shadow-lg shadow-red-200'
+                  : 'bg-blue-600 shadow-lg shadow-blue-200'
+              }`}
+            >
+              <Text className="text-white font-bold text-sm">
+                {confirmText}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+// ✅ MEMOIZED SUB-COMPONENTS
 
 const InfoItem = memo(({ label, value, icon: Icon, delay = 0 }: any) => (
   <Animated.View
@@ -228,6 +312,8 @@ const ParentCard = memo(
   ),
 );
 
+// ✅ IMPROVED SECTION CARD (ACCORDION)
+// Menambahkan properti exiting pada konten untuk animasi tutup yang halus
 const SectionCard = memo(
   ({
     title,
@@ -240,7 +326,8 @@ const SectionCard = memo(
     badge,
   }: any) => (
     <Animated.View
-      layout={Layout.springify()}
+      // Menggunakan transition yang lebih smooth
+      layout={Layout.springify().damping(14).mass(1).stiffness(100)}
       className="bg-white rounded-3xl mb-4 shadow-sm border border-slate-100 overflow-hidden"
     >
       <TouchableOpacity
@@ -279,11 +366,18 @@ const SectionCard = memo(
         </View>
       </TouchableOpacity>
 
+      {/* Konten Accordion */}
       {isExpanded && (
-        <View className="px-5 pb-6">
+        <Animated.View
+          // KUNCI PERBAIKAN: Gunakan exiting dengan durasi yang pas
+          // agar container menunggu konten memudar sebelum menyusut.
+          entering={FadeInUp.duration(300)}
+          exiting={FadeOutUp.duration(200)}
+          className="px-5 pb-6"
+        >
           <View className="h-px bg-slate-100 mb-5" />
           {children}
-        </View>
+        </Animated.View>
       )}
     </Animated.View>
   ),
@@ -295,6 +389,9 @@ const HomeScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [imageError, setImageError] = useState(false);
+
+  // State untuk Modal Konfirmasi Logout
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const [modalStatus, setModalStatus] = useState({
     visible: false,
@@ -312,7 +409,7 @@ const HomeScreen = ({ navigation }: any) => {
     riwayat: false,
   });
 
-  // ✅ MEMOIZED VALUES (Prevent recalculation)
+  // ✅ MEMOIZED VALUES
   const siswa = useMemo(() => user?.siswa, [user]);
   const isFemale = useMemo(() => siswa?.jenis_kelamin === 'P', [siswa]);
   const theme = useMemo(
@@ -338,7 +435,7 @@ const HomeScreen = ({ navigation }: any) => {
     return parts.join(', ');
   }, [siswa]);
 
-  // ✅ CALLBACKS (Stable references)
+  // ✅ CALLBACKS
   const toggleSection = useCallback((key: string) => {
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
@@ -348,11 +445,11 @@ const HomeScreen = ({ navigation }: any) => {
       const data = await fetchWithSmartCache(
         '/me',
         'USER_PROFILE_DATA',
-        240, // 4 hours cache
+        240,
         isManualRefresh,
       );
       setUser(data);
-      setImageError(false); // Reset image error on refresh
+      setImageError(false);
     } catch (error) {
       console.error('Error fetching profile:', error);
       setModalStatus({
@@ -439,25 +536,19 @@ const HomeScreen = ({ navigation }: any) => {
     }
   }, [siswa]);
 
-  const handleLogout = useCallback(async () => {
-    Alert.alert(
-      'Konfirmasi Keluar',
-      'Apakah Anda yakin ingin keluar dari aplikasi?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Keluar',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            navigation.getParent()?.replace('Login');
-          },
-        },
-      ],
-    );
+  // Fungsi Logout yang baru (hanya memicu modal)
+  const onLogoutPress = useCallback(() => {
+    setShowLogoutModal(true);
+  }, []);
+
+  // Fungsi Konfirmasi Logout (Eksekusi sebenarnya)
+  const confirmLogout = useCallback(async () => {
+    setShowLogoutModal(false);
+    await logout();
+    navigation.getParent()?.replace('Login');
   }, [navigation]);
 
-  // ✅ SKELETON LOADING (Improved)
+  // ✅ SKELETON LOADING
   if (loading && !user) {
     return (
       <SafeAreaView className="flex-1 bg-slate-50">
@@ -527,14 +618,13 @@ const HomeScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View entering={FadeIn.duration(500)}>
-          {/* Enhanced Header with Better Contrast */}
+          {/* Header */}
           <LinearGradient
             colors={theme.gradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             className="relative pb-24 rounded-b-[40px] shadow-2xl"
           >
-            {/* Decorative Elements */}
             <View className="absolute top-0 right-0 p-12 opacity-10">
               <Award size={200} color="white" />
             </View>
@@ -542,7 +632,6 @@ const HomeScreen = ({ navigation }: any) => {
               <Shield size={100} color="white" />
             </View>
 
-            {/* Edit Button */}
             <TouchableOpacity
               onPress={() => navigation.navigate('EditProfile', { user })}
               className="absolute top-12 right-6 z-10 bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/30 active:scale-95"
@@ -551,7 +640,6 @@ const HomeScreen = ({ navigation }: any) => {
               <Edit3 size={20} color="white" />
             </TouchableOpacity>
 
-            {/* Profile Content */}
             <View className="items-center pt-12 px-6">
               <View className="relative mb-6">
                 <View className="bg-white p-1.5 rounded-full shadow-2xl">
@@ -576,7 +664,6 @@ const HomeScreen = ({ navigation }: any) => {
                       </Text>
                     </View>
                   )}
-                  {/* Online Indicator */}
                   <View className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white" />
                 </View>
               </View>
@@ -816,7 +903,7 @@ const HomeScreen = ({ navigation }: any) => {
 
               <TouchableOpacity
                 className="bg-white p-5 rounded-2xl border border-red-100 flex-row justify-center items-center shadow-sm mb-6 active:bg-red-50"
-                onPress={handleLogout}
+                onPress={onLogoutPress}
               >
                 <LogOut size={22} color="#ef4444" />
                 <Text className="text-red-600 font-bold ml-3 text-sm tracking-wide">
@@ -832,12 +919,25 @@ const HomeScreen = ({ navigation }: any) => {
         </Animated.View>
       </ScrollView>
 
+      {/* MODAL STATUS UMUM */}
       <StatusModal
         visible={modalStatus.visible}
         type={modalStatus.type}
         title={modalStatus.title}
         message={modalStatus.message}
         onClose={() => setModalStatus(prev => ({ ...prev, visible: false }))}
+      />
+
+      {/* MODAL KONFIRMASI LOGOUT */}
+      <ConfirmModal
+        visible={showLogoutModal}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari aplikasi? Anda perlu login kembali untuk mengakses akun Anda."
+        confirmText="Keluar"
+        cancelText="Batal"
+        isDestructive={true}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={confirmLogout}
       />
     </SafeAreaView>
   );
