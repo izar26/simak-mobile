@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,14 +16,16 @@ import {
   Bell,
   Clock,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react-native';
-import api from '../services/api'; // Masih butuh jika ada API call lain, tapi utamanya pakai smart cache
+import api from '../services/api';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton';
 import LinearGradient from 'react-native-linear-gradient';
-
-// ✅ 1. IMPORT SMART CACHE
 import { fetchWithSmartCache } from '../utils/apiCache';
+import { logger } from '../utils/logger';
+import { handleApiError, logError } from '../utils/errorHandler';
+import { AnnouncementItem } from '../types';
 
 const AnnouncementsScreen = ({ navigation }: any) => {
   const [data, setData] = useState<any[]>([]);
@@ -36,12 +38,9 @@ const AnnouncementsScreen = ({ navigation }: any) => {
   }, []);
 
   // ✅ 2. UPDATE LOGIC FETCH DATA
-  const fetchData = async (isManualRefresh = false) => {
+  const fetchData = useCallback(async (isManualRefresh = false) => {
     try {
-      // Endpoint: /siswa/semua-informasi
-      // Key Storage: ANNOUNCEMENTS_LIST
-      // TTL: 30 Menit (Cukup fresh untuk papan pengumuman)
-      // Force Refresh: True jika ditarik user
+      logger.info('AnnouncementsScreen', 'Fetching announcements');
       const cachedData = await fetchWithSmartCache(
         '/siswa/semua-informasi',
         'ANNOUNCEMENTS_LIST',
@@ -50,19 +49,24 @@ const AnnouncementsScreen = ({ navigation }: any) => {
       );
 
       setData(cachedData || []);
+      logger.info('AnnouncementsScreen', 'Announcements fetched', {
+        count: cachedData?.length || 0,
+      });
     } catch (error) {
-      console.log('Error fetching announcements:', error);
+      const appError = handleApiError(error);
+      logError('AnnouncementsScreen.fetchData', appError);
+      logger.error('AnnouncementsScreen', 'Failed to fetch', appError.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   // ✅ 3. UPDATE REFRESH HANDLER
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData(true); // True = Paksa ambil baru dari server
-  };
+    fetchData(true);
+  }, [fetchData]);
 
   const filteredData =
     filter === 'semua' ? data : data.filter(item => item.type === filter);

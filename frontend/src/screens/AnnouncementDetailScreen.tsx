@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,53 +22,103 @@ import {
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { MAIN_APP_URL } from '@env';
 import RenderHTML from 'react-native-render-html';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { AnnouncementItem } from '../types';
+import { buildStorageUrl, sanitizeHtml } from '../utils/validation';
+import { logger } from '../utils/logger';
 
 const AnnouncementDetailScreen = ({ navigation, route }: any) => {
-  const { item } = route.params;
+  const { item } = route.params as { item: AnnouncementItem };
   const { width } = useWindowDimensions();
 
-  const getTheme = (type: string) => {
-    switch (type) {
-      case 'libur':
-        return {
-          label: 'LIBUR SEKOLAH',
-          bgHeader: 'bg-red-600',
-          text: 'text-red-600',
-          bgBadge: 'bg-red-50',
-          icon: Calendar,
-        };
-      case 'berita':
-        return {
-          label: 'BERITA & KEGIATAN',
-          bgHeader: 'bg-emerald-600',
-          text: 'text-emerald-600',
-          bgBadge: 'bg-emerald-50',
-          icon: FileText,
-        };
-      case 'agenda':
-        return {
-          label: 'AGENDA SEKOLAH',
-          bgHeader: 'bg-amber-500',
-          text: 'text-amber-600',
-          bgBadge: 'bg-amber-50',
-          icon: Clock,
-        };
-      default:
-        return {
-          label: 'PENGUMUMAN PENTING',
-          bgHeader: 'bg-blue-600',
-          text: 'text-blue-600',
-          bgBadge: 'bg-blue-50',
-          icon: Info,
-        };
-    }
-  };
+  // ✅ VALIDATE ITEM ON MOUNT
+  if (!item || !item.type || !item.title || !item.date) {
+    logger.error('AnnouncementDetail', 'Invalid item data', item);
+    return (
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
+        <View className="items-center">
+          <Info size={48} color="#ef4444" />
+          <Text className="text-slate-700 font-bold mt-4">
+            Data tidak valid
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            className="mt-6 bg-blue-600 px-6 py-2 rounded-lg"
+          >
+            <Text className="text-white font-bold">Kembali</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ✅ MEMOIZED THEME FUNCTION
+  const getTheme = useMemo(() => {
+    return (type: string) => {
+      switch (type) {
+        case 'libur':
+          return {
+            label: 'LIBUR SEKOLAH',
+            bgHeader: 'bg-red-600',
+            text: 'text-red-600',
+            bgBadge: 'bg-red-50',
+            icon: Calendar,
+          };
+        case 'berita':
+          return {
+            label: 'BERITA & KEGIATAN',
+            bgHeader: 'bg-emerald-600',
+            text: 'text-emerald-600',
+            bgBadge: 'bg-emerald-50',
+            icon: FileText,
+          };
+        case 'agenda':
+          return {
+            label: 'AGENDA SEKOLAH',
+            bgHeader: 'bg-amber-500',
+            text: 'text-amber-600',
+            bgBadge: 'bg-amber-50',
+            icon: Clock,
+          };
+        default:
+          return {
+            label: 'PENGUMUMAN PENTING',
+            bgHeader: 'bg-blue-600',
+            text: 'text-blue-600',
+            bgBadge: 'bg-blue-50',
+            icon: Info,
+          };
+      }
+    };
+  }, []);
 
   const theme = getTheme(item.type);
   const Icon = theme.icon;
-  const imageUrl = item.image ? `${MAIN_APP_URL}/storage/${item.image}` : null;
+
+  // ✅ VALIDATED & SAFE IMAGE URL
+  const imageUrl = useMemo(() => {
+    if (!item.image) return null;
+    return buildStorageUrl(MAIN_APP_URL, item.image);
+  }, [item.image]);
+
+  // ✅ SANITIZED HTML CONTENT
+  const safeContent = useMemo(() => {
+    const content = item.content || item.isi || item.desc || '';
+    return sanitizeHtml(content);
+  }, [item.content, item.isi, item.desc]);
+
+  // ✅ FORMATTED DATE
+  const formattedDate = useMemo(() => {
+    try {
+      return new Date(item.date).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (e) {
+      logger.warn('AnnouncementDetail', 'Invalid date format', item.date);
+      return 'Tanggal tidak valid';
+    }
+  }, [item.date]);
 
   return (
     <View className="flex-1 bg-slate-100">
@@ -86,7 +136,6 @@ const AnnouncementDetailScreen = ({ navigation, route }: any) => {
             className="w-full h-full opacity-80"
             resizeMode="cover"
           />
-          {/* Gradient Overlay for Text Readability */}
           <View className="absolute bottom-0 w-full h-48 bg-gradient-to-t from-black/80 to-transparent" />
         </View>
       ) : (
@@ -131,11 +180,7 @@ const AnnouncementDetailScreen = ({ navigation, route }: any) => {
                 <View className="flex-row items-center">
                   <Clock size={12} color="#94a3b8" />
                   <Text className="text-slate-400 text-xs font-bold ml-1.5">
-                    {new Date(item.date).toLocaleDateString('id-ID', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
+                    {formattedDate}
                   </Text>
                 </View>
               </View>
@@ -188,26 +233,32 @@ const AnnouncementDetailScreen = ({ navigation, route }: any) => {
                 <View className="h-[2px] flex-1 bg-slate-900" />
               </View>
 
-              {/* Body Text (Rendered HTML) */}
+              {/* Body Text (Rendered HTML) - Sanitized */}
               <View className="min-h-[300px]">
-                <RenderHTML
-                  contentWidth={width - 40} // Accounting for padding
-                  source={{ html: item.content || item.isi || item.desc || '' }}
-                  tagsStyles={{
-                    p: {
-                      marginBottom: 16,
-                      fontSize: 16,
-                      lineHeight: 26,
-                      color: '#475569',
-                      textAlign: 'left',
-                    },
-                    b: { fontWeight: 'bold', color: '#1e293b' },
-                    strong: { fontWeight: 'bold', color: '#1e293b' },
-                    ul: { marginBottom: 16 },
-                    li: { fontSize: 16, color: '#475569', marginBottom: 8 },
-                    a: { color: '#2563eb', textDecorationLine: 'underline' },
-                  }}
-                />
+                {safeContent ? (
+                  <RenderHTML
+                    contentWidth={width - 40}
+                    source={{ html: safeContent }}
+                    tagsStyles={{
+                      p: {
+                        marginBottom: 16,
+                        fontSize: 16,
+                        lineHeight: 26,
+                        color: '#475569',
+                        textAlign: 'left',
+                      },
+                      b: { fontWeight: 'bold', color: '#1e293b' },
+                      strong: { fontWeight: 'bold', color: '#1e293b' },
+                      ul: { marginBottom: 16 },
+                      li: { fontSize: 16, color: '#475569', marginBottom: 8 },
+                      a: { color: '#2563eb', textDecorationLine: 'underline' },
+                    }}
+                  />
+                ) : (
+                  <Text className="text-slate-500">
+                    Tidak ada konten untuk ditampilkan.
+                  </Text>
+                )}
               </View>
 
               {/* Footer / Signature (Optional) */}

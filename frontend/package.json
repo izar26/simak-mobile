@@ -19,6 +19,7 @@
     "@react-navigation/native": "^7.1.28",
     "@react-navigation/native-stack": "^7.10.0",
     "axios": "^1.13.2",
+    "dompurify": "^3.3.1",
     "lottie-react-native": "^7.3.5",
     "lucide-react-native": "^0.562.0",
     "nativewind": "^4.2.1",

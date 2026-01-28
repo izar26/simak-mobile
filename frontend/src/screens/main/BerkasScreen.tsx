@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import {
   Download,
   Image as ImageIcon,
   X,
+  AlertCircle,
+  Info,
 } from 'lucide-react-native';
 import { pick, types } from '@react-native-documents/picker';
 import ImageCropPicker from 'react-native-image-crop-picker';
@@ -34,46 +36,64 @@ import LinearGradient from 'react-native-linear-gradient';
 import LottieView from 'lottie-react-native';
 import Skeleton from '../../components/Skeleton';
 import StatusModal from '../../components/StatusModal';
+import { logger } from '../../utils/logger';
+import { handleApiError, logError } from '../../utils/errorHandler';
+import { buildStorageUrl } from '../../utils/validation';
+import { BerkasItem } from '../../types';
 
-// --- KOMPONEN PREVIEW MODAL (TIDAK BERUBAH) ---
+// --- KOMPONEN PREVIEW MODAL ---
 const PreviewModal = ({ visible, berkas, onClose }: any) => {
   if (!visible || !berkas) return null;
 
   const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(
     berkas.file_type?.toLowerCase() || '',
   );
-  const fileUrl = `${MAIN_APP_URL}/storage/${berkas.file_path}`;
 
-  const handleDownload = async () => {
+  const fileUrl = useMemo(() => {
+    return buildStorageUrl(MAIN_APP_URL, berkas.file_path);
+  }, [berkas.file_path]);
+
+  const handleDownload = useCallback(async () => {
+    if (!fileUrl) {
+      Alert.alert('Error', 'URL file tidak valid');
+      return;
+    }
+
     const { dirs } = ReactNativeBlobUtil.fs;
     const fileName = berkas.judul || 'Dokumen';
     const extension = berkas.file_type || 'pdf';
     const path = `${dirs.DownloadDir}/${fileName}.${extension}`;
 
-    if (Platform.OS === 'android') {
-      ReactNativeBlobUtil.config({
-        fileCache: true,
-        addAndroidDownloads: {
-          useDownloadManager: true,
-          notification: true,
-          path: path,
-          description: 'Downloading file...',
-          mediaScannable: true,
-          title: fileName,
-        },
-      })
-        .fetch('GET', fileUrl)
-        .then(res => {
-          Alert.alert('Berhasil', `File tersimpan di: ${res.path()}`);
+    try {
+      if (Platform.OS === 'android') {
+        ReactNativeBlobUtil.config({
+          fileCache: true,
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            path: path,
+            description: 'Downloading file...',
+            mediaScannable: true,
+            title: fileName,
+          },
         })
-        .catch(err => {
-          console.error(err);
-          Alert.alert('Gagal', 'Gagal mendownload file.');
-        });
-    } else {
-      Linking.openURL(fileUrl);
+          .fetch('GET', fileUrl)
+          .then(res => {
+            logger.info('PreviewModal', 'Download successful', { fileName });
+            Alert.alert('Berhasil', `File tersimpan di: ${res.path()}`);
+          })
+          .catch(err => {
+            logError('PreviewModal.download', err);
+            Alert.alert('Gagal', 'Gagal mendownload file.');
+          });
+      } else {
+        Linking.openURL(fileUrl);
+      }
+    } catch (error) {
+      logError('PreviewModal.handleDownload', error);
+      Alert.alert('Error', 'Terjadi kesalahan saat download');
     }
-  };
+  }, [fileUrl, berkas]);
 
   return (
     <Modal
@@ -96,7 +116,7 @@ const PreviewModal = ({ visible, berkas, onClose }: any) => {
             </TouchableOpacity>
           </View>
           <View className="p-6 items-center justify-center min-h-[200px]">
-            {isImage ? (
+            {isImage && fileUrl ? (
               <Image
                 source={{ uri: fileUrl }}
                 className="w-full h-64 rounded-xl bg-gray-100"
@@ -108,7 +128,8 @@ const PreviewModal = ({ visible, berkas, onClose }: any) => {
                   <FileText size={48} color="#ef4444" />
                 </View>
                 <Text className="text-gray-500 text-center text-sm px-4">
-                  File ini adalah dokumen PDF.
+                  File ini adalah dokumen{' '}
+                  {berkas.file_type?.toUpperCase() || 'digital'}.
                 </Text>
               </View>
             )}
@@ -153,74 +174,90 @@ const BerkasScreen = ({ navigation, route }: any) => {
     fetchBerkas();
   }, []);
 
-  const fetchBerkas = async () => {
+  const fetchBerkas = useCallback(async () => {
     setLoading(true);
     try {
+      logger.info('BerkasScreen', 'Fetching berkas data');
       const response = await api.get('/me');
       setBerkasList(response.data.siswa.berkas || []);
+      logger.info('BerkasScreen', 'Berkas fetched successfully', {
+        count: response.data.siswa.berkas?.length || 0,
+      });
     } catch (error) {
-      console.log(error);
+      const appError = handleApiError(error);
+      logError('BerkasScreen.fetchBerkas', appError);
+      logger.error('BerkasScreen', 'Failed to fetch berkas', appError.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const executeUpload = async (file: {
-    uri: string;
-    type: string;
-    name: string;
-    size?: number;
-  }) => {
-    // Tutup modal pilihan dulu
-    setShowUploadOption(false);
+  const executeUpload = useCallback(
+    async (file: {
+      uri: string;
+      type: string;
+      name: string;
+      size?: number;
+    }) => {
+      // Tutup modal pilihan dulu
+      setShowUploadOption(false);
 
-    if (file.size && file.size > 2 * 1024 * 1024) {
-      // Update ke 2MB biar aman
-      setModalStatus({
-        visible: true,
-        type: 'error',
-        title: 'File Terlalu Besar',
-        message: 'Ukuran file maksimal adalah 2 MB.',
-      });
-      return;
-    }
+      if (file.size && file.size > 2 * 1024 * 1024) {
+        setModalStatus({
+          visible: true,
+          type: 'error',
+          title: 'File Terlalu Besar',
+          message: 'Ukuran file maksimal adalah 2 MB.',
+        });
+        return;
+      }
 
-    setUploading(true);
-    try {
-      const data = new FormData();
-      data.append('file', {
-        uri: file.uri,
-        type: file.type,
-        name: file.name,
-      } as any);
-      data.append('judul', judul);
+      setUploading(true);
+      try {
+        logger.info('BerkasScreen', 'Uploading berkas', {
+          name: file.name,
+          size: file.size,
+        });
 
-      const response = await api.post('/siswa/upload-berkas', data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+        const data = new FormData();
+        data.append('file', {
+          uri: file.uri,
+          type: file.type,
+          name: file.name,
+        } as any);
+        data.append('judul', judul);
 
-      setBerkasList(prev => [...prev, response.data.berkas]);
-      setJudul('');
-      setModalStatus({
-        visible: true,
-        type: 'success',
-        title: 'Berhasil Upload',
-        message: 'Dokumen Anda berhasil disimpan.',
-      });
-    } catch (error) {
-      console.error(error);
-      setModalStatus({
-        visible: true,
-        type: 'error',
-        title: 'Gagal Upload',
-        message: 'Terjadi kesalahan saat mengupload file.',
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
+        const response = await api.post('/siswa/upload-berkas', data, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
 
-  const handleInitialCheck = () => {
+        setBerkasList(prev => [...prev, response.data.berkas]);
+        setJudul('');
+        logger.info('BerkasScreen', 'Upload successful');
+        setModalStatus({
+          visible: true,
+          type: 'success',
+          title: 'Berhasil Upload',
+          message: 'Dokumen Anda berhasil disimpan.',
+        });
+      } catch (error) {
+        const appError = handleApiError(error);
+        logError('BerkasScreen.executeUpload', appError);
+        setModalStatus({
+          visible: true,
+          type: 'error',
+          title: 'Gagal Upload',
+          message:
+            appError.message || 'Terjadi kesalahan saat mengupload file.',
+        });
+      } finally {
+        setUploading(false);
+      }
+    },
+    [judul],
+  );
+
+  const handleInitialCheck = useCallback(() => {
     if (!judul.trim()) {
       setModalStatus({
         visible: true,
@@ -232,11 +269,12 @@ const BerkasScreen = ({ navigation, route }: any) => {
     }
     // Jika lolos, buka modal custom
     setShowUploadOption(true);
-  };
+  }, [judul]);
 
   // Logic pilih Gambar
-  const onSelectImage = async () => {
+  const onSelectImage = useCallback(async () => {
     try {
+      logger.info('BerkasScreen', 'Opening image picker');
       const image = await ImageCropPicker.openPicker({
         mediaType: 'photo',
         compressImageQuality: 0.7,
@@ -248,14 +286,18 @@ const BerkasScreen = ({ navigation, route }: any) => {
         name: image.path.split('/').pop() || 'document.jpg',
         size: image.size,
       });
-    } catch (err) {
-      console.log('Picker cancelled');
+    } catch (err: any) {
+      if (err?.code !== 'E_PICKER_CANCELLED') {
+        logError('BerkasScreen.onSelectImage', err);
+      }
+      logger.warn('BerkasScreen', 'Image picker cancelled or error');
     }
-  };
+  }, [executeUpload]);
 
   // Logic pilih PDF
-  const onSelectPDF = async () => {
+  const onSelectPDF = useCallback(async () => {
     try {
+      logger.info('BerkasScreen', 'Opening PDF picker');
       const result = await pick({
         type: [types.pdf],
         presentationStyle: 'fullScreen',
@@ -269,12 +311,13 @@ const BerkasScreen = ({ navigation, route }: any) => {
       });
     } catch (err: any) {
       if (err?.message !== 'User cancelled document picker') {
-        console.error(err);
+        logError('BerkasScreen.onSelectPDF', err);
       }
+      logger.warn('BerkasScreen', 'PDF picker cancelled or error');
     }
-  };
+  }, [executeUpload]);
 
-  const handleDeleteBerkas = async (id: number) => {
+  const handleDeleteBerkas = useCallback((id: number) => {
     Alert.alert('Hapus Dokumen?', 'Dokumen akan dihapus permanen.', [
       { text: 'Batal', style: 'cancel' },
       {
@@ -282,8 +325,10 @@ const BerkasScreen = ({ navigation, route }: any) => {
         style: 'destructive',
         onPress: async () => {
           try {
+            logger.info('BerkasScreen', 'Deleting berkas', { id });
             await api.post('/siswa/hapus-berkas', { id });
             setBerkasList(prev => prev.filter(b => b.id !== id));
+            logger.info('BerkasScreen', 'Berkas deleted successfully');
             setModalStatus({
               visible: true,
               type: 'success',
@@ -291,17 +336,19 @@ const BerkasScreen = ({ navigation, route }: any) => {
               message: 'Dokumen berhasil dihapus.',
             });
           } catch (error) {
+            const appError = handleApiError(error);
+            logError('BerkasScreen.handleDeleteBerkas', appError);
             setModalStatus({
               visible: true,
               type: 'error',
               title: 'Gagal Hapus',
-              message: 'Gagal menghapus dokumen.',
+              message: appError.message || 'Gagal menghapus dokumen.',
             });
           }
         },
       },
     ]);
-  };
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">

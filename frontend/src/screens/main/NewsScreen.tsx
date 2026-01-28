@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,8 @@ import {
   Image,
   RefreshControl,
   Modal,
-  Dimensions,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Calendar, User, X } from 'lucide-react-native';
@@ -16,6 +16,10 @@ import RenderHtml from 'react-native-render-html';
 import api from '../../services/api';
 import { MAIN_APP_URL } from '@env';
 import Skeleton from '../../components/Skeleton';
+import { NewsItem } from '../../types';
+import { buildStorageUrl, sanitizeHtml } from '../../utils/validation';
+import { handleApiError, logError } from '../../utils/errorHandler';
+import { logger } from '../../utils/logger';
 
 const NewsSkeleton = () => (
   <View className="p-4">
@@ -37,47 +41,74 @@ const NewsSkeleton = () => (
 );
 
 const NewsScreen = ({ navigation }: any) => {
-  const [news, setNews] = useState<any[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedNews, setSelectedNews] = useState<any>(null);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
 
-  useEffect(() => {
-    fetchNews();
+  // ✅ MEMOIZED DATE FORMATTER
+  const formatDate = useCallback((dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        logger.warn('NewsScreen', 'Invalid date format', dateString);
+        return 'Tanggal tidak diketahui';
+      }
+      return date.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch (e) {
+      logger.error('NewsScreen', 'Date formatting error', e);
+      return 'Tanggal tidak diketahui';
+    }
   }, []);
 
-  const fetchNews = async () => {
+  // ✅ VALIDATED IMAGE URL
+  const getImageUrl = useCallback((path: string | undefined): string | null => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    return buildStorageUrl(MAIN_APP_URL, `beritas/${path}`);
+  }, []);
+
+  // ✅ FETCH NEWS WITH ERROR HANDLING
+  const fetchNews = useCallback(async () => {
     try {
+      setError(null);
       const response = await api.get('/berita');
+
+      // ✅ VALIDATE RESPONSE
+      if (!Array.isArray(response.data)) {
+        throw new Error('Invalid response format: expected array');
+      }
+
       setNews(response.data);
-    } catch (error) {
-      console.log('Gagal ambil berita', error);
+      logger.info('NewsScreen', 'News fetched successfully', {
+        count: response.data.length,
+      });
+    } catch (err) {
+      const appError = handleApiError(err);
+      setError(appError.message);
+      logError('NewsScreen:fetchNews', appError);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
+  // ✅ FETCH ON MOUNT
+  React.useEffect(() => {
+    fetchNews();
+  }, [fetchNews]);
+
+  // ✅ REFRESH HANDLER
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchNews();
-  }, []);
-
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    };
-    return new Date(dateString).toLocaleDateString('id-ID', options);
-  };
-
-  const getImageUrl = (path: string) => {
-    if (!path) return undefined;
-    if (path.startsWith('http')) return path;
-    return `${MAIN_APP_URL}/storage/beritas/${path}`;
-  };
+  }, [fetchNews]);
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
@@ -89,6 +120,19 @@ const NewsScreen = ({ navigation }: any) => {
 
       {loading ? (
         <NewsSkeleton />
+      ) : error ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-red-600 font-bold text-lg mb-4">
+            ⚠️ Gagal memuat berita
+          </Text>
+          <Text className="text-slate-600 text-center mb-6">{error}</Text>
+          <TouchableOpacity
+            onPress={() => fetchNews()}
+            className="bg-blue-600 px-8 py-3 rounded-lg"
+          >
+            <Text className="text-white font-bold">Coba Lagi</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
@@ -117,12 +161,7 @@ const NewsScreen = ({ navigation }: any) => {
                     />
                   ) : (
                     <View className="w-full h-56 bg-slate-100 items-center justify-center">
-                      <Image
-                        source={{
-                          uri: 'https://via.placeholder.com/400x200?text=No+Image',
-                        }}
-                        className="w-full h-full opacity-50"
-                      />
+                      <User size={48} color="#cbd5e1" />
                     </View>
                   )}
                   <View className="absolute top-4 left-4 bg-blue-600 px-3 py-1 rounded-full shadow-lg">
@@ -158,7 +197,7 @@ const NewsScreen = ({ navigation }: any) => {
 
               {news.slice(1).map((item, index) => (
                 <TouchableOpacity
-                  key={index}
+                  key={`${item.id}-${index}`}
                   activeOpacity={0.7}
                   onPress={() => setSelectedNews(item)}
                   className="flex-row bg-white rounded-2xl mb-4 shadow-sm border border-slate-100 overflow-hidden p-3"
@@ -263,11 +302,11 @@ const NewsScreen = ({ navigation }: any) => {
                 />
               )}
 
-              {/* Render HTML Content */}
+              {/* Render HTML Content - Sanitized */}
               <View>
                 <RenderHtml
                   contentWidth={width - 40}
-                  source={{ html: selectedNews.isi }}
+                  source={{ html: sanitizeHtml(selectedNews.isi) }}
                   tagsStyles={{
                     p: {
                       color: '#334155',
