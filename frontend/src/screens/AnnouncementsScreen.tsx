@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,14 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import api from '../services/api';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import Skeleton from '../components/Skeleton';
 import LinearGradient from 'react-native-linear-gradient';
 import { fetchWithSmartCache } from '../utils/apiCache';
 import { logger } from '../utils/logger';
 import { handleApiError, logError } from '../utils/errorHandler';
 import { AnnouncementItem } from '../types';
+import { sanitizeHtml } from '../utils/validation';
 
 const AnnouncementsScreen = ({ navigation }: any) => {
   const [data, setData] = useState<any[]>([]);
@@ -68,54 +69,62 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     fetchData(true);
   }, [fetchData]);
 
-  const filteredData =
-    filter === 'semua' ? data : data.filter(item => item.type === filter);
+  // ✅ MEMOIZED CATEGORY STYLES - Pre-computed to avoid recomputation
+  const categoryStylesMap = useMemo(
+    () => ({
+      libur: {
+        label: 'Libur Nasional',
+        bg: 'bg-rose-50',
+        text: 'text-rose-600',
+        border: 'border-rose-200',
+        indicator: 'bg-rose-500',
+        iconColor: '#e11d48',
+        icon: Calendar,
+      },
+      berita: {
+        label: 'Berita Sekolah',
+        bg: 'bg-emerald-50',
+        text: 'text-emerald-600',
+        border: 'border-emerald-200',
+        indicator: 'bg-emerald-500',
+        iconColor: '#059669',
+        icon: FileText,
+      },
+      agenda: {
+        label: 'Agenda Kegiatan',
+        bg: 'bg-amber-50',
+        text: 'text-amber-700',
+        border: 'border-amber-200',
+        indicator: 'bg-amber-500',
+        iconColor: '#b45309',
+        icon: Clock,
+      },
+      default: {
+        label: 'Informasi Umum',
+        bg: 'bg-blue-50',
+        text: 'text-blue-600',
+        border: 'border-blue-200',
+        indicator: 'bg-blue-500',
+        iconColor: '#2563eb',
+        icon: Info,
+      },
+    }),
+    [],
+  );
 
-  // Helper untuk styling berdasarkan tipe
-  const getCategoryStyles = (type: string) => {
-    switch (type) {
-      case 'libur':
-        return {
-          label: 'Libur Nasional',
-          bg: 'bg-rose-50',
-          text: 'text-rose-600',
-          border: 'border-rose-200',
-          indicator: 'bg-rose-500',
-          iconColor: '#e11d48',
-          icon: Calendar,
-        };
-      case 'berita':
-        return {
-          label: 'Berita Sekolah',
-          bg: 'bg-emerald-50',
-          text: 'text-emerald-600',
-          border: 'border-emerald-200',
-          indicator: 'bg-emerald-500',
-          iconColor: '#059669',
-          icon: FileText,
-        };
-      case 'agenda':
-        return {
-          label: 'Agenda Kegiatan',
-          bg: 'bg-amber-50',
-          text: 'text-amber-700',
-          border: 'border-amber-200',
-          indicator: 'bg-amber-500',
-          iconColor: '#b45309',
-          icon: Clock,
-        };
-      default:
-        return {
-          label: 'Informasi Umum',
-          bg: 'bg-blue-50',
-          text: 'text-blue-600',
-          border: 'border-blue-200',
-          indicator: 'bg-blue-500',
-          iconColor: '#2563eb',
-          icon: Info,
-        };
-    }
-  };
+  const getCategoryStyles = useCallback(
+    (type: string) =>
+      categoryStylesMap[type as keyof typeof categoryStylesMap] ||
+      categoryStylesMap.default,
+    [categoryStylesMap],
+  );
+
+  // ✅ MEMOIZED FILTERED DATA
+  const filteredData = useMemo(
+    () =>
+      filter === 'semua' ? data : data.filter(item => item.type === filter),
+    [filter, data],
+  );
 
   const categories = [
     { id: 'semua', label: 'Semua' },
@@ -125,19 +134,22 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     { id: 'info', label: 'Info' },
   ];
 
-  const renderItem = ({ item, index }: any) => {
-    const styles = getCategoryStyles(item.type);
-    const Icon = styles.icon;
+  // ✅ MEMOIZED RENDER ITEM - Prevents re-rendering on every parent update
+  const renderItem = useCallback(
+    ({ item }: any) => {
+      const styles = getCategoryStyles(item.type);
+      const Icon = styles.icon;
+      const formattedDate = new Date(item.date).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
 
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 100).duration(600)}
-        className="mb-4"
-      >
+      return (
         <TouchableOpacity
           onPress={() => navigation.navigate('DetailPengumuman', { item })}
           activeOpacity={0.8}
-          className="bg-white rounded-[20px] shadow-sm shadow-slate-200 border border-slate-100 overflow-hidden flex-row min-h-[110px]"
+          className="mb-4 bg-white rounded-[20px] shadow-sm shadow-slate-200 border border-slate-100 overflow-hidden flex-row min-h-[110px]"
         >
           {/* Side Color Indicator */}
           <View className={`w-1.5 h-full ${styles.indicator}`} />
@@ -156,16 +168,15 @@ const AnnouncementsScreen = ({ navigation }: any) => {
                 </Text>
               </View>
               <Text className="text-slate-400 text-[11px] font-medium mt-0.5">
-                {new Date(item.date).toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {formattedDate}
               </Text>
             </View>
 
             {/* Title & Desc */}
-            <Text className="text-slate-800 font-bold text-[16px] leading-6 mb-1">
+            <Text
+              className="text-slate-800 font-bold text-[16px] leading-6 mb-1"
+              numberOfLines={2}
+            >
               {item.title}
             </Text>
           </View>
@@ -175,9 +186,10 @@ const AnnouncementsScreen = ({ navigation }: any) => {
             <ChevronRight size={18} color="#cbd5e1" />
           </View>
         </TouchableOpacity>
-      </Animated.View>
-    );
-  };
+      );
+    },
+    [getCategoryStyles, navigation],
+  );
 
   return (
     <View className="flex-1 bg-slate-50">
@@ -278,9 +290,14 @@ const AnnouncementsScreen = ({ navigation }: any) => {
       ) : (
         <FlatList
           data={filteredData}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          scrollEnabled={true}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={10}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -310,4 +327,4 @@ const AnnouncementsScreen = ({ navigation }: any) => {
   );
 };
 
-export default AnnouncementsScreen;
+export default memo(AnnouncementsScreen);

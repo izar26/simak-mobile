@@ -2,7 +2,6 @@
 // VALIDATION & SANITIZATION UTILITIES
 // ==========================================
 
-import DOMPurify from 'dompurify';
 import { AppError } from '../types';
 
 /**
@@ -48,38 +47,45 @@ export const buildStorageUrl = (
 
 /**
  * Sanitizes HTML content to prevent XSS attacks
+ * React Native implementation - removes dangerous tags and attributes
  * @param html - HTML content to sanitize
  * @returns Sanitized HTML string
  */
 export const sanitizeHtml = (html: string | undefined): string => {
   if (!html || typeof html !== 'string') return '';
 
-  // Configuration for DOMPurify - only allow specific safe tags
-  const config = {
-    ALLOWED_TAGS: [
-      'b',
-      'i',
-      'em',
-      'strong',
-      'p',
-      'br',
-      'ul',
-      'li',
-      'ol',
-      'h1',
-      'h2',
-      'h3',
-      'a',
-      'img',
-    ],
-    ALLOWED_ATTR: ['href', 'title', 'src', 'alt'],
-    KEEP_CONTENT: true,
-    RETURN_DOM: false,
-    RETURN_DOM_FRAGMENT: false,
-    RETURN_DOM_IMPORT: false,
-  };
+  // Simple HTML sanitization for React Native
+  // Removes script tags, event handlers, and dangerous attributes
+  let sanitized = html;
 
-  return DOMPurify.sanitize(html, config);
+  // Remove script tags and content
+  sanitized = sanitized.replace(
+    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+    '',
+  );
+
+  // Remove style tags and content
+  sanitized = sanitized.replace(
+    /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
+    '',
+  );
+
+  // Remove event handlers (onclick, onload, etc.)
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*['"][^'"]*['"]/gi, '');
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^\s>]*/gi, '');
+
+  // Remove iframe and embed tags
+  sanitized = sanitized.replace(/<iframe\b[^>]*>.*?<\/iframe>/gi, '');
+  sanitized = sanitized.replace(/<embed\b[^>]*>/gi, '');
+  sanitized = sanitized.replace(/<object\b[^>]*>.*?<\/object>/gi, '');
+
+  // Remove javascript: protocol
+  sanitized = sanitized.replace(/javascript:/gi, '');
+
+  // Remove data: protocol (for images)
+  sanitized = sanitized.replace(/data:text\/html/gi, '');
+
+  return sanitized;
 };
 
 /**

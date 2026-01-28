@@ -42,7 +42,7 @@ import { buildStorageUrl } from '../../utils/validation';
 import { BerkasItem } from '../../types';
 
 // --- KOMPONEN PREVIEW MODAL ---
-const PreviewModal = ({ visible, berkas, onClose }: any) => {
+const PreviewModal = ({ visible, berkas, onClose, onShowStatus }: any) => {
   if (!visible || !berkas) return null;
 
   const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(
@@ -55,7 +55,12 @@ const PreviewModal = ({ visible, berkas, onClose }: any) => {
 
   const handleDownload = useCallback(async () => {
     if (!fileUrl) {
-      Alert.alert('Error', 'URL file tidak valid');
+      onShowStatus({
+        visible: true,
+        type: 'error',
+        title: 'URL Tidak Valid',
+        message: 'File tidak dapat diakses. Coba lagi nanti.',
+      });
       return;
     }
 
@@ -70,7 +75,7 @@ const PreviewModal = ({ visible, berkas, onClose }: any) => {
           fileCache: true,
           addAndroidDownloads: {
             useDownloadManager: true,
-            notification: true,
+            notification: false,
             path: path,
             description: 'Downloading file...',
             mediaScannable: true,
@@ -80,20 +85,41 @@ const PreviewModal = ({ visible, berkas, onClose }: any) => {
           .fetch('GET', fileUrl)
           .then(res => {
             logger.info('PreviewModal', 'Download successful', { fileName });
-            Alert.alert('Berhasil', `File tersimpan di: ${res.path()}`);
+            onShowStatus({
+              visible: true,
+              type: 'success',
+              title: 'Download Berhasil',
+              message: `${fileName} telah tersimpan di folder Downloads.`,
+            });
           })
           .catch(err => {
             logError('PreviewModal.download', err);
-            Alert.alert('Gagal', 'Gagal mendownload file.');
+            onShowStatus({
+              visible: true,
+              type: 'error',
+              title: 'Download Gagal',
+              message: 'Terjadi kesalahan saat mengunduh file.',
+            });
           });
       } else {
         Linking.openURL(fileUrl);
+        onShowStatus({
+          visible: true,
+          type: 'success',
+          title: 'Membuka File',
+          message: 'File sedang dibuka di aplikasi pihak ketiga.',
+        });
       }
     } catch (error) {
       logError('PreviewModal.handleDownload', error);
-      Alert.alert('Error', 'Terjadi kesalahan saat download');
+      onShowStatus({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Terjadi kesalahan saat download',
+      });
     }
-  }, [fileUrl, berkas]);
+  }, [fileUrl, berkas, onShowStatus]);
 
   return (
     <Modal
@@ -605,6 +631,7 @@ const BerkasScreen = ({ navigation, route }: any) => {
         visible={!!selectedBerkas}
         berkas={selectedBerkas}
         onClose={() => setSelectedBerkas(null)}
+        onShowStatus={setModalStatus}
       />
 
       {/* Status Modal Global */}
