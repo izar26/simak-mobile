@@ -10,12 +10,13 @@ interface StatusModalProps {
   visible: boolean;
   type: 'success' | 'error' | 'warning' | 'info';
   title: string;
-  message: string;
+  message?: string;
   onClose: () => void;
   buttonText?: string;
+  children?: React.ReactNode;
 }
 
-const StatusModal = ({ visible, type, title, message, onClose, buttonText = 'Mengerti' }: StatusModalProps) => {
+const StatusModal = ({ visible, type, title, message, onClose, buttonText = 'Mengerti', children }: StatusModalProps) => {
   if (!visible) return null;
 
   const configs = {
@@ -77,9 +78,11 @@ const StatusModal = ({ visible, type, title, message, onClose, buttonText = 'Men
           <Text className="text-slate-800 font-black text-2xl mb-2 text-center tracking-tight">
             {title}
           </Text>
-          <Text className="text-slate-500 text-center text-base leading-6 mb-8 px-2 font-medium">
+          <Text className="text-slate-500 text-center text-base leading-6 mb-4 px-2 font-medium">
             {message}
           </Text>
+
+          {children && <View className="w-full mb-6">{children}</View>}
 
           {/* Action Button */}
           <TouchableOpacity 

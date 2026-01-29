@@ -59,7 +59,13 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        $user = $request->user()->load('siswa.berkas');
+        // Load siswa, berkas, DAN pengajuan perubahan yang masih pending
+        $user = $request->user()->load([
+            'siswa.berkas', 
+            'siswa.pengajuan_perubahan' => function ($query) {
+                $query->where('status', 'pending');
+            }
+        ]);
 
         // Fetch data sekolah manual karena tidak ada Model Sekolah
         $sekolah = DB::table('sekolahs')->first();

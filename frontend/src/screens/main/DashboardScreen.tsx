@@ -322,7 +322,7 @@ const DashboardHeader = memo(
 
     return (
       <View className="flex-row justify-between items-center px-6 py-4 bg-slate-50 z-10">
-        <View className="flex-row items-center gap-3.5">
+        <View className="flex-row items-center gap-3.5 flex-1 mr-4">
           <View className="p-[3px] bg-white rounded-full shadow-sm border border-slate-100">
             {fotoUrl ? (
               <Image
@@ -336,14 +336,11 @@ const DashboardHeader = memo(
               </View>
             )}
           </View>
-          <View>
+          <View className="flex-1">
             <Text className="text-slate-400 text-[11px] font-bold uppercase tracking-wider mb-0.5">
               {greeting}
             </Text>
-            <Text
-              className="text-slate-800 font-black text-lg leading-6"
-              numberOfLines={1}
-            >
+            <Text className="text-slate-800 font-black text-lg leading-6">
               {user?.siswa?.nama || 'Siswa'}
             </Text>
           </View>

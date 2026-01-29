@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -34,9 +35,19 @@ const AnnouncementsScreen = ({ navigation }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('semua');
 
+  // ✅ PAGINATION STATE
+  const LIMIT = 15;
+  const [visibleLimit, setVisibleLimit] = useState(LIMIT);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   useEffect(() => {
     fetchData(false); // False = Jangan paksa refresh (Cek Cache dulu)
   }, []);
+
+  // Reset pagination saat filter berubah
+  useEffect(() => {
+    setVisibleLimit(LIMIT);
+  }, [filter]);
 
   // ✅ 2. UPDATE LOGIC FETCH DATA
   const fetchData = useCallback(async (isManualRefresh = false) => {
@@ -45,7 +56,7 @@ const AnnouncementsScreen = ({ navigation }: any) => {
       const cachedData = await fetchWithSmartCache(
         '/siswa/semua-informasi',
         'ANNOUNCEMENTS_LIST',
-        30,
+        1440, // Cache valid selama 24 jam. Hemat kuota & server!
         isManualRefresh,
       );
 
@@ -119,12 +130,38 @@ const AnnouncementsScreen = ({ navigation }: any) => {
     [categoryStylesMap],
   );
 
-  // ✅ MEMOIZED FILTERED DATA
-  const filteredData = useMemo(
+  // ✅ MEMOIZED FILTERED & PAGINATED DATA
+  const filteredSource = useMemo(
     () =>
       filter === 'semua' ? data : data.filter(item => item.type === filter),
     [filter, data],
   );
+
+  const paginatedData = useMemo(
+    () => filteredSource.slice(0, visibleLimit),
+    [filteredSource, visibleLimit],
+  );
+
+  const handleLoadMore = () => {
+    if (paginatedData.length < filteredSource.length) {
+      setLoadingMore(true);
+      // Simulasi delay sedikit agar terasa natural
+      setTimeout(() => {
+        setVisibleLimit(prev => prev + LIMIT);
+        setLoadingMore(false);
+      }, 500);
+    }
+  };
+
+  const renderFooter = () => {
+    if (!loadingMore && paginatedData.length >= filteredSource.length) return <View className="h-20" />;
+    return (
+      <View className="py-6 items-center">
+        <ActivityIndicator size="small" color="#2563eb" />
+        <Text className="text-slate-400 text-xs mt-2">Memuat lebih banyak...</Text>
+      </View>
+    );
+  };
 
   const categories = [
     { id: 'semua', label: 'Semua' },
@@ -289,16 +326,19 @@ const AnnouncementsScreen = ({ navigation }: any) => {
         </View>
       ) : (
         <FlatList
-          data={filteredData}
+          data={paginatedData}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 20 }}
           scrollEnabled={true}
           removeClippedSubviews={true}
           maxToRenderPerBatch={10}
           updateCellsBatchingPeriod={50}
           initialNumToRender={10}
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

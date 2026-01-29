@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Dimensions,
   InteractionManager,
   ScrollView,
+  Alert, // Tambahkan Alert
+  RefreshControl, // Tambahkan RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -32,6 +34,7 @@ import {
   XCircle,
   Award,
   Calendar,
+  Clock, // Tambahkan Clock
 } from 'lucide-react-native';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import ImageCropPicker from 'react-native-image-crop-picker';
@@ -89,9 +92,18 @@ const InputField = ({
   placeholder = '',
   value,
   onChangeText,
+  isPending = false, // Prop baru
 }: any) => {
   const isLocked = lockedColumns.includes(fieldKey);
   const isDisabled = disabledColumns.includes(fieldKey);
+
+  const handlePendingPress = () => {
+    Alert.alert(
+      'Sedang Diverifikasi',
+      `Data "${label}" sedang dalam proses verifikasi sekolah. Anda tidak dapat mengubahnya sampai proses selesai.`,
+      [{ text: 'Mengerti', style: 'default' }],
+    );
+  };
 
   return (
     <View className="mb-6">
@@ -99,7 +111,15 @@ const InputField = ({
         <Text className="text-slate-600 text-xs font-bold uppercase tracking-wider">
           {label}
         </Text>
-        {isLocked && !isDisabled && (
+        {isPending && (
+          <View className="flex-row items-center bg-yellow-50 px-2 py-0.5 rounded-md ml-2 border border-yellow-200">
+            <Clock size={10} color="#ca8a04" />
+            <Text className="text-[9px] text-yellow-700 font-bold ml-1 uppercase">
+              Sedang Diverifikasi
+            </Text>
+          </View>
+        )}
+        {!isPending && isLocked && !isDisabled && (
           <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md ml-2 border border-amber-100">
             <Lock size={10} color="#d97706" />
             <Text className="text-[9px] text-amber-700 font-bold ml-1 uppercase">
@@ -115,11 +135,15 @@ const InputField = ({
           </View>
         )}
       </View>
-      <View
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={isPending ? handlePendingPress : undefined}
         className={`flex-row items-center rounded-2xl px-4 border transition-all 
         ${
           isDisabled
             ? 'bg-slate-100 border-slate-200'
+            : isPending
+            ? 'bg-yellow-50/30 border-yellow-300 shadow-sm shadow-yellow-100' // Style Pending
             : isLocked
             ? 'bg-amber-50/20 border-amber-200'
             : 'bg-white border-slate-200 focus:border-blue-500 shadow-sm'
@@ -128,13 +152,22 @@ const InputField = ({
       >
         <Icon
           size={20}
-          color={isDisabled ? '#cbd5e1' : isLocked ? '#d97706' : '#94a3b8'}
+          color={
+            isDisabled
+              ? '#cbd5e1'
+              : isPending
+              ? '#ca8a04'
+              : isLocked
+              ? '#d97706'
+              : '#94a3b8'
+          }
         />
         <TextInput
           className={`flex-1 ml-3 font-semibold text-sm h-full ${
-            isDisabled ? 'text-slate-400' : 'text-slate-800'
+            isDisabled ? 'text-slate-400' : isPending ? 'text-yellow-800' : 'text-slate-800'
           }`}
-          editable={!isDisabled}
+          editable={!isDisabled && !isPending}
+          pointerEvents={isPending ? 'none' : 'auto'}
           value={value ? value.toString() : ''}
           onChangeText={text => onChangeText(fieldKey, text)}
           placeholder={placeholder || `Masukkan ${label}`}
@@ -142,7 +175,7 @@ const InputField = ({
           keyboardType={keyboardType}
           autoCapitalize="none"
         />
-      </View>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -193,11 +226,23 @@ const SelectField = ({
   value,
   options,
   onSelect,
+  isPending = false, // Prop baru
 }: any) => {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const isLocked = lockedColumns.includes(fieldKey);
 
-  const handlePresentModal = () => bottomSheetRef.current?.present();
+  const handlePress = () => {
+    if (isPending) {
+      Alert.alert(
+        'Sedang Diverifikasi',
+        `Data "${label}" sedang dalam proses verifikasi sekolah. Anda tidak dapat mengubahnya sampai proses selesai.`,
+        [{ text: 'Mengerti', style: 'default' }],
+      );
+      return;
+    }
+    bottomSheetRef.current?.present();
+  };
+
   const handleCloseModal = () => bottomSheetRef.current?.dismiss();
 
   return (
@@ -206,7 +251,15 @@ const SelectField = ({
         <Text className="text-slate-600 text-xs font-bold uppercase tracking-wider">
           {label}
         </Text>
-        {isLocked && (
+        {isPending && (
+          <View className="flex-row items-center bg-yellow-50 px-2 py-0.5 rounded-md ml-2 border border-yellow-200">
+            <Clock size={10} color="#ca8a04" />
+            <Text className="text-[9px] text-yellow-700 font-bold ml-1 uppercase">
+              Sedang Diverifikasi
+            </Text>
+          </View>
+        )}
+        {!isPending && isLocked && (
           <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md ml-2 border border-amber-100">
             <Lock size={10} color="#d97706" />
             <Text className="text-[9px] text-amber-700 font-bold ml-1 uppercase">
@@ -217,26 +270,35 @@ const SelectField = ({
       </View>
 
       <TouchableOpacity
-        onPress={handlePresentModal}
+        onPress={handlePress}
         className={`flex-row items-center rounded-2xl px-4 border transition-all 
         ${
-          isLocked
+          isPending
+            ? 'bg-yellow-50/30 border-yellow-300 shadow-sm shadow-yellow-100'
+            : isLocked
             ? 'bg-amber-50/20 border-amber-200'
             : 'bg-white border-slate-200 shadow-sm'
         }`}
         style={{ height: 56 }}
       >
-        <Icon size={20} color={isLocked ? '#d97706' : '#94a3b8'} />
+        <Icon
+          size={20}
+          color={isPending ? '#ca8a04' : isLocked ? '#d97706' : '#94a3b8'}
+        />
         <Text
           className={`flex-1 ml-3 text-sm ${
-            value ? 'text-slate-800 font-semibold' : 'text-slate-400'
+            isPending
+              ? 'text-yellow-800 font-semibold'
+              : value
+              ? 'text-slate-800 font-semibold'
+              : 'text-slate-400'
           }`}
         >
           {value || `Pilih ${label}`}
         </Text>
         <ChevronLeft
           size={20}
-          color="#94a3b8"
+          color={isPending ? '#ca8a04' : '#94a3b8'}
           style={{ transform: [{ rotate: '-90deg' }] }}
         />
       </TouchableOpacity>
@@ -280,11 +342,29 @@ const SelectField = ({
   );
 };
 
-const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
+const DateField = ({
+  label,
+  fieldKey,
+  value,
+  onChangeText,
+  isPending = false,
+}: any) => {
   const [show, setShow] = useState(false);
   const isLocked = lockedColumns.includes(fieldKey);
 
   const dateValue = value ? new Date(value) : new Date();
+
+  const handlePress = () => {
+    if (isPending) {
+      Alert.alert(
+        'Sedang Diverifikasi',
+        `Data "${label}" sedang dalam proses verifikasi sekolah. Anda tidak dapat mengubahnya sampai proses selesai.`,
+        [{ text: 'Mengerti', style: 'default' }],
+      );
+      return;
+    }
+    setShow(true);
+  };
 
   const handleChange = (event: any, selectedDate?: Date) => {
     setShow(false);
@@ -302,7 +382,15 @@ const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
         <Text className="text-slate-600 text-xs font-bold uppercase tracking-wider">
           {label}
         </Text>
-        {isLocked && (
+        {isPending && (
+          <View className="flex-row items-center bg-yellow-50 px-2 py-0.5 rounded-md ml-2 border border-yellow-200">
+            <Clock size={10} color="#ca8a04" />
+            <Text className="text-[9px] text-yellow-700 font-bold ml-1 uppercase">
+              Sedang Diverifikasi
+            </Text>
+          </View>
+        )}
+        {!isPending && isLocked && (
           <View className="flex-row items-center bg-amber-50 px-2 py-0.5 rounded-md ml-2 border border-amber-100">
             <Lock size={10} color="#d97706" />
             <Text className="text-[9px] text-amber-700 font-bold ml-1 uppercase">
@@ -312,18 +400,27 @@ const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
         )}
       </View>
       <TouchableOpacity
-        onPress={() => setShow(true)}
+        onPress={handlePress}
         className={`flex-row items-center rounded-2xl px-4 border transition-all ${
-          isLocked
+          isPending
+            ? 'bg-yellow-50/30 border-yellow-300 shadow-sm shadow-yellow-100'
+            : isLocked
             ? 'bg-amber-50/20 border-amber-200'
             : 'bg-white border-slate-200 shadow-sm'
         }`}
         style={{ height: 56 }}
       >
-        <Calendar size={20} color={isLocked ? '#d97706' : '#94a3b8'} />
+        <Calendar
+          size={20}
+          color={isPending ? '#ca8a04' : isLocked ? '#d97706' : '#94a3b8'}
+        />
         <Text
           className={`flex-1 ml-3 text-sm ${
-            value ? 'text-slate-800 font-semibold' : 'text-slate-400'
+            isPending
+              ? 'text-yellow-800 font-semibold'
+              : value
+              ? 'text-slate-800 font-semibold'
+              : 'text-slate-400'
           }`}
         >
           {value
@@ -343,13 +440,14 @@ const DateField = ({ label, fieldKey, value, onChangeText }: any) => {
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleChange}
           maximumDate={new Date()}
+          minimumDate={new Date(1900, 0, 1)}
         />
       )}
     </View>
   );
 };
 
-const RegionPicker = ({ formData, onChange }: any) => {
+const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
   const [loading, setLoading] = useState(false);
   const [provinces, setProvinces] = useState<any[]>([]);
   const [regencies, setRegencies] = useState<any[]>([]);
@@ -417,6 +515,7 @@ const RegionPicker = ({ formData, onChange }: any) => {
         value={formData.provinsi}
         options={provinces.map(p => p.name)}
         onSelect={handleSelectProv}
+        isPending={pendingFields.includes('provinsi')}
       />
       <SelectField
         label="Kabupaten / Kota"
@@ -425,6 +524,7 @@ const RegionPicker = ({ formData, onChange }: any) => {
         value={formData.kabupaten_kota}
         options={regencies.map(r => r.name)}
         onSelect={handleSelectReg}
+        isPending={pendingFields.includes('kabupaten_kota')}
       />
       {!regencies.length && !formData.kabupaten_kota && formData.provinsi && (
         <Text className="text-xs text-blue-500 mb-2 px-2">
@@ -438,6 +538,7 @@ const RegionPicker = ({ formData, onChange }: any) => {
         value={formData.kecamatan}
         options={districts.map(d => d.name)}
         onSelect={handleSelectDist}
+        isPending={pendingFields.includes('kecamatan')}
       />
       <SelectField
         label="Desa / Kelurahan"
@@ -446,6 +547,7 @@ const RegionPicker = ({ formData, onChange }: any) => {
         value={formData.desa_kelurahan}
         options={villages.map(v => v.name)}
         onSelect={(k: any, v: any) => onChange(k, v)}
+        isPending={pendingFields.includes('desa_kelurahan')}
       />
     </>
   );
@@ -465,19 +567,180 @@ const FormSection = ({ title, icon: Icon, children }: any) => (
   </View>
 );
 
+const LABEL_MAP: Record<string, string> = {
+  nama: 'Nama Lengkap',
+  nisn: 'NISN',
+  nik: 'NIK',
+  no_kk: 'Nomor KK',
+  tempat_lahir: 'Tempat Lahir',
+  tanggal_lahir: 'Tanggal Lahir',
+  alamat_jalan: 'Alamat Jalan',
+  email_akun: 'Email',
+  no_hp_akun: 'No. HP',
+  nama_ayah: 'Nama Ayah',
+  nama_ibu: 'Nama Ibu',
+  // Silakan tambahkan field lain jika perlu, default akan memformat key-nya
+};
+
+const formatLabel = (key: string) => {
+  if (LABEL_MAP[key]) return LABEL_MAP[key];
+  return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
 const EditProfileScreen = ({ navigation, route }: any) => {
   const { user } = route.params;
+  const initialDataRef = useRef<any>(null); // Simpan data awal untuk perbandingan
+
+  // 1. EKSTRAK DATA PENDING (Agar yang tampil adalah data yang diajukan, bukan data lama)
+  const pendingDataOverrides = useMemo(() => {
+    let overrides: any = {};
+    if (user?.siswa?.pengajuan_perubahan) {
+      user.siswa.pengajuan_perubahan.forEach((req: any) => {
+        if (req.status === 'pending' && req.data_perubahan) {
+          try {
+            const data =
+              typeof req.data_perubahan === 'string'
+                ? JSON.parse(req.data_perubahan)
+                : req.data_perubahan;
+            overrides = { ...overrides, ...data };
+          } catch (e) {
+            console.warn('Gagal parse data perubahan', e);
+          }
+        }
+      });
+    }
+    return overrides;
+  }, [user]);
+
+  // 2. FORM INIT (Prioritas: Pending > User > Siswa)
   const [formData, setFormData] = useState<any>({
-    ...(user?.siswa || {}),
-    alamat_jalan: user?.alamat || user?.siswa?.alamat_jalan || '',
-    email_akun: user?.username || '',
+    ...(user?.siswa || {}), // Base data siswa
+    ...pendingDataOverrides, // Timpa dengan data yang sedang diverifikasi
+
+    // Mapping field khusus (Prioritaskan Pending -> User -> Siswa -> Default)
+    alamat_jalan:
+      pendingDataOverrides.alamat_jalan ??
+      user?.alamat ??
+      user?.siswa?.alamat_jalan ??
+      '',
+    email_akun: pendingDataOverrides.email_akun ?? user?.username ?? '',
     nomor_telepon_rumah:
-      user?.siswa?.nomor_telepon_rumah || user?.no_telepon || '',
-    no_hp_akun: user?.no_hp || '',
+      pendingDataOverrides.nomor_telepon_rumah ??
+      user?.siswa?.nomor_telepon_rumah ??
+      '',
+    no_hp_akun: pendingDataOverrides.no_hp_akun ?? user?.no_hp ?? '',
   });
+
+  // 3. pendingFields sekarang cukup ambil keys dari overrides
+  const pendingFields = useMemo(
+    () => Object.keys(pendingDataOverrides),
+    [pendingDataOverrides],
+  );
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fungsi Sinkronisasi Data (Bisa dipanggil otomatis atau manual)
+  const fetchLatestProfile = useCallback(async () => {
+    try {
+      // Force refresh dari server dengan header anti-cache
+      const freshData = await api.get('/me', {
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      });
+      const userData = freshData.data;
+
+      if (userData && userData.username) {
+        // HAPUS LOGIKA CACHE DISINI. Edit Profil = Selalu Live Data.
+        // Kita hanya update form state agar user melihat data server terkini.
+
+        // Hitung ulang overrides
+        let newOverrides: any = {};
+        if (userData.siswa?.pengajuan_perubahan) {
+          userData.siswa.pengajuan_perubahan.forEach((req: any) => {
+            if (req.status === 'pending' && req.data_perubahan) {
+              try {
+                const d =
+                  typeof req.data_perubahan === 'string'
+                    ? JSON.parse(req.data_perubahan)
+                    : req.data_perubahan;
+                newOverrides = { ...newOverrides, ...d };
+              } catch (e) {}
+            }
+          });
+        }
+
+        // Update Form Data (REPLACE TOTAL)
+        setFormData({
+          ...(userData.siswa || {}),
+          ...newOverrides,
+          alamat_jalan:
+            newOverrides.alamat_jalan ??
+            userData.alamat ??
+            userData.siswa?.alamat_jalan ??
+            '',
+          email_akun: newOverrides.email_akun ?? userData.username ?? '',
+          nomor_telepon_rumah:
+            newOverrides.nomor_telepon_rumah ??
+            userData.siswa?.nomor_telepon_rumah ??
+            userData.no_telepon ??
+            '',
+          no_hp_akun: newOverrides.no_hp_akun ?? userData.no_hp ?? '',
+        });
+
+        initialDataRef.current = {
+          ...(userData.siswa || {}),
+          ...newOverrides,
+          alamat_jalan:
+            newOverrides.alamat_jalan ??
+            userData.alamat ??
+            userData.siswa?.alamat_jalan ??
+            '',
+          email_akun: newOverrides.email_akun ?? userData.username ?? '',
+          nomor_telepon_rumah:
+            newOverrides.nomor_telepon_rumah ??
+            userData.siswa?.nomor_telepon_rumah ??
+            userData.no_telepon ??
+            '',
+          no_hp_akun: newOverrides.no_hp_akun ?? userData.no_hp ?? '',
+        };
+      }
+    } catch (error) {
+      console.warn('Gagal sinkronisasi data profil terbaru:', error);
+    } finally {
+      setRefreshing(false); // Stop spinner
+    }
+  }, []);
+
+  // Auto-sync saat masuk halaman
+  useEffect(() => {
+    fetchLatestProfile();
+  }, [fetchLatestProfile]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchLatestProfile();
+  }, [fetchLatestProfile]);
+
+  // Simpan initial data saat pertama kali load (Fallback)
+  useEffect(() => {
+    if (!initialDataRef.current) {
+      initialDataRef.current = { ...formData };
+    }
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
-  const [alertConfig, setAlertConfig] = useState({
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onClose: () => void;
+    children?: React.ReactNode;
+  }>({
     visible: false,
     title: '',
     message: '',
@@ -579,51 +842,155 @@ const EditProfileScreen = ({ navigation, route }: any) => {
   const handleSave = async () => {
     setLoading(true);
     try {
+      // 1. Identifikasi Perubahan (Diffing)
+      const changedKeys: string[] = [];
+      const initialData = initialDataRef.current || {};
+
+      Object.keys(formData).forEach(key => {
+        if (key !== 'foto' && key !== 'berkas') {
+          // Bandingkan nilai string agar aman
+          const valOld = String(initialData[key] || '');
+          const valNew = String(formData[key] || '');
+          if (valOld !== valNew) {
+            changedKeys.push(key);
+          }
+        }
+      });
+
+      // Jika tidak ada perubahan
+      if (changedKeys.length === 0) {
+        setAlertConfig({
+          visible: true,
+          title: 'Tidak Ada Perubahan',
+          message: 'Anda belum mengubah data apapun.',
+          type: 'info',
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+        setLoading(false);
+        return;
+      }
+
       const data = new FormData();
       Object.keys(formData).forEach(key => {
         if (key !== 'foto' && key !== 'berkas' && formData[key] !== null)
           data.append(key, String(formData[key]));
       });
+
       const response = await api.post('/siswa/update', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       if (response.data.user) {
         const storageKey = 'USER_PROFILE_DATA';
 
-        // 1. Timpa data lama dengan data baru dari response server
+        // PERBAIKAN: Gunakan key standar apiCache (CACHE_ & META_)
+        // agar HomeScreen bisa membaca perubahan ini.
         await AsyncStorage.setItem(
-          `DATA_${storageKey}`,
+          `CACHE_${storageKey}`,
           JSON.stringify(response.data.user),
         );
 
-        // 2. Reset waktunya jadi "Sekarang", biar dianggap masih segar
-        await AsyncStorage.setItem(`TIME_${storageKey}`, Date.now().toString());
+        // Update timestamp agar dianggap fresh oleh fetchWithSmartCache
+        await AsyncStorage.setItem(
+          `META_${storageKey}`,
+          JSON.stringify({
+            timestamp: Date.now(),
+            etag: null, // Reset ETag agar nanti sync ulang jika perlu
+          }),
+        );
 
-        console.log('✅ [EditProfile] Cache berhasil diperbarui manual!');
+        // PERBAIKAN PENTING: Reset acuan data awal agar tidak dianggap berubah lagi di request berikutnya
+        initialDataRef.current = { ...formData };
       }
-      let message = 'Perubahan data berhasil disimpan.';
-      if (
-        response.data.pending_request &&
-        Object.keys(response.data.pending_request).length > 0
-      ) {
-        message +=
-          '\n\nBeberapa data memerlukan verifikasi sekolah sebelum berubah.';
-      }
-      setAlertConfig({
-        visible: true,
-        title: 'Berhasil Disimpan!',
-        message: message,
-        type: 'success',
-        onClose: () => {
-          setAlertConfig(prev => ({ ...prev, visible: false }));
-          navigation.goBack();
-        },
+
+      // 2. Klasifikasi Hasil (Logic Frontend)
+      // Backend tidak mengembalikan daftar pending_request di JSON response update siswa,
+      // jadi kita gunakan lockedColumns lokal untuk menentukan mana yang butuh verifikasi.
+      const successKeys: string[] = [];
+      const pendingChangeKeys: string[] = [];
+
+      changedKeys.forEach(key => {
+        if (lockedColumns.includes(key)) {
+          pendingChangeKeys.push(key);
+        } else {
+          successKeys.push(key);
+        }
       });
+
+      const hasPending = pendingChangeKeys.length > 0;
+      const hasSuccess = successKeys.length > 0;
+
+      // 3. Bangun UI List Rincian (Langsung JSX, bukan komponen fungsi)
+      const detailContent = (
+        <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 w-full">
+          {hasSuccess && (
+            <View className={hasPending ? 'mb-4' : ''}>
+              <View className="flex-row items-center mb-2">
+                <CheckCircle size={14} color="#10b981" />
+                <Text className="text-emerald-600 font-bold text-xs uppercase ml-2 tracking-wider">
+                  Langsung Berubah
+                </Text>
+              </View>
+              {successKeys.map(key => (
+                <Text key={key} className="text-slate-600 text-sm ml-6 mb-1">
+                  • {formatLabel(key)}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {hasPending && (
+            <View>
+              <View className="flex-row items-center mb-2">
+                <AlertCircle size={14} color="#f59e0b" />
+                <Text className="text-amber-600 font-bold text-xs uppercase ml-2 tracking-wider">
+                  Menunggu Persetujuan
+                </Text>
+              </View>
+              {pendingChangeKeys.map(key => (
+                <Text key={key} className="text-slate-600 text-sm ml-6 mb-1">
+                  • {formatLabel(key)}
+                </Text>
+              ))}
+              <Text className="text-slate-400 text-[10px] italic mt-2 ml-6 leading-4">
+                * Data ini butuh verifikasi admin sekolah sebelum berubah di profil.
+              </Text>
+            </View>
+          )}
+        </View>
+      );
+
+      // 4. Tentukan Tipe & Pesan Utama
+      if (hasPending) {
+        setAlertConfig({
+          visible: true,
+          title: 'Laporan Perubahan',
+          message: 'Beberapa data berhasil disimpan, namun ada yang memerlukan persetujuan sekolah.',
+          type: 'warning',
+          children: detailContent,
+          onClose: () => {
+            setAlertConfig(prev => ({ ...prev, visible: false }));
+            navigation.goBack();
+          },
+        });
+      } else {
+        setAlertConfig({
+          visible: true,
+          title: 'Berhasil Disimpan!',
+          message: 'Semua perubahan data profil Anda telah berhasil diperbarui.',
+          type: 'success',
+          children: detailContent,
+          onClose: () => {
+            setAlertConfig(prev => ({ ...prev, visible: false }));
+            navigation.goBack();
+          },
+        });
+      }
     } catch (error: any) {
       setAlertConfig({
         visible: true,
         title: 'Gagal Menyimpan',
-        message: 'Terjadi kesalahan jaringan.',
+        message: 'Terjadi kesalahan jaringan atau server.',
         type: 'error',
         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
       });
@@ -693,6 +1060,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           >
             <View className="items-center py-8 bg-white mb-6 border-b border-slate-50">
               <TouchableOpacity
@@ -779,6 +1149,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     icon={User}
                     value={formData.nama}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('nama')}
                   />
                   <InputField
                     label="NIPD"
@@ -787,6 +1158,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={formData.nipd}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('nipd')}
                   />
                   <InputField
                     label="NISN"
@@ -795,6 +1167,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={formData.nisn}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('nisn')}
                   />
                   <InputField
                     label="NIK"
@@ -803,6 +1176,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={formData.nik}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('nik')}
                   />
                   <InputField
                     label="Nomor KK"
@@ -811,6 +1185,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={formData.no_kk}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('no_kk')}
                   />
 
                   <InputField
@@ -819,12 +1194,14 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     icon={MapPin}
                     value={formData.tempat_lahir}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('tempat_lahir')}
                   />
                   <DateField
                     label="Tgl Lahir"
                     fieldKey="tanggal_lahir"
                     value={formData.tanggal_lahir}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('tanggal_lahir')}
                   />
                   <InputField
                     label="Anak Keberapa"
@@ -833,6 +1210,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     icon={Info}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('anak_keberapa')}
                   />
 
                   <InputField
@@ -841,6 +1219,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     icon={Info}
                     value={formData.kebutuhan_khusus}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('kebutuhan_khusus')}
                   />
 
                   <View className="h-[1px] bg-slate-100 my-4" />
@@ -854,6 +1233,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     icon={FileText}
                     value={formData.email_akun}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('email_akun')}
                   />
                   <InputField
                     label="No. HP"
@@ -862,6 +1242,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="phone-pad"
                     value={formData.no_hp_akun}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('no_hp_akun')}
                   />
                   <InputField
                     label="Telp Rumah"
@@ -870,6 +1251,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="phone-pad"
                     value={formData.nomor_telepon_rumah}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('nomor_telepon_rumah')}
                   />
 
                   <View className="h-[1px] bg-slate-100 my-4" />
@@ -884,6 +1266,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="phone-pad"
                     value={formData.no_wa}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('no_wa')}
                   />
                   <View className="flex-row gap-4">
                     <View className="flex-1">
@@ -918,6 +1301,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     icon={MapPin}
                     value={formData.alamat_jalan}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('alamat_jalan')}
                   />
                   <View className="flex-row gap-4">
                     <View className="flex-1">
@@ -928,6 +1312,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         keyboardType="numeric"
                         value={formData.rt}
                         onChangeText={handleChange}
+                        isPending={pendingFields.includes('rt')}
                       />
                     </View>
                     <View className="flex-1">
@@ -938,10 +1323,15 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         keyboardType="numeric"
                         value={formData.rw}
                         onChangeText={handleChange}
+                        isPending={pendingFields.includes('rw')}
                       />
                     </View>
                   </View>
-                  <RegionPicker formData={formData} onChange={handleChange} />
+                  <RegionPicker
+                    formData={formData}
+                    onChange={handleChange}
+                    pendingFields={pendingFields}
+                  />
                   <InputField
                     label="Kode Pos"
                     fieldKey="kode_pos"
@@ -949,6 +1339,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={formData.kode_pos}
                     onChangeText={handleChange}
+                    isPending={pendingFields.includes('kode_pos')}
                   />
                 </FormSection>
               )}
@@ -962,6 +1353,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Heart}
                       value={formData.hobi}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('hobi')}
                     />
                     <InputField
                       label="Cita-cita"
@@ -969,6 +1361,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Award}
                       value={formData.cita_cita}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('cita_cita')}
                     />
                     <SelectField
                       label="Jenis Tinggal"
@@ -985,6 +1378,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Lainnya',
                       ]}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('jenis_tinggal_id_str')}
                     />
                     <SelectField
                       label="Transportasi"
@@ -1000,6 +1394,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Lainnya',
                       ]}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('alat_transportasi_id_str')}
                     />
                     <View className="flex-row gap-4">
                       <View className="flex-1">
@@ -1010,6 +1405,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                           keyboardType="numeric"
                           value={formData.jarak_rumah_ke_sekolah_km}
                           onChangeText={handleChange}
+                          isPending={pendingFields.includes('jarak_rumah_ke_sekolah_km')}
                         />
                       </View>
                       <View className="flex-1">
@@ -1020,6 +1416,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                           keyboardType="numeric"
                           value={formData.waktu_tempuh_menit}
                           onChangeText={handleChange}
+                          isPending={pendingFields.includes('waktu_tempuh_menit')}
                         />
                       </View>
                     </View>
@@ -1030,6 +1427,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       value={formData.penerima_kip}
                       options={['Ya', 'Tidak']}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('penerima_kip')}
                     />
                     <InputField
                       label="No. KIP"
@@ -1037,6 +1435,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Info}
                       value={formData.no_kip}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_kip')}
                     />
                     <SelectField
                       label="Penerima KPS/PKH"
@@ -1045,6 +1444,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       value={formData.penerima_kps}
                       options={['Ya', 'Tidak']}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('penerima_kps')}
                     />
                   </FormSection>
 
@@ -1055,6 +1455,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={User}
                       value={formData.sekolah_asal}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('sekolah_asal')}
                     />
                     <InputField
                       label="NPSN Sekolah Asal"
@@ -1063,6 +1464,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       keyboardType="numeric"
                       value={formData.npsn_sekolah_asal}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('npsn_sekolah_asal')}
                     />
                     <InputField
                       label="No. Ijazah"
@@ -1070,6 +1472,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={FileText}
                       value={formData.no_seri_ijazah}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_seri_ijazah')}
                     />
                     <InputField
                       label="No. SKHUN"
@@ -1077,6 +1480,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={FileText}
                       value={formData.no_seri_skhun}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_seri_skhun')}
                     />
                     <InputField
                       label="No. Peserta UN"
@@ -1084,6 +1488,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={FileText}
                       value={formData.no_ujian_nasional}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_ujian_nasional')}
                     />
                     <InputField
                       label="No. Reg Akta Lahir"
@@ -1091,6 +1496,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={FileText}
                       value={formData.no_registrasi_akta_lahir}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_registrasi_akta_lahir')}
                     />
                   </FormSection>
                 </>
@@ -1105,12 +1511,14 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={User}
                       value={formData.nama_ayah}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('nama_ayah')}
                     />
                     <DateField
                       label="Tgl Lahir Ayah"
                       fieldKey="tahun_lahir_ayah"
                       value={formData.tahun_lahir_ayah}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('tahun_lahir_ayah')}
                     />
                     <InputField
                       label="Pekerjaan"
@@ -1118,6 +1526,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Info}
                       value={formData.pekerjaan_ayah_id_str}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('pekerjaan_ayah_id_str')}
                     />
                     <SelectField
                       label="Penghasilan"
@@ -1134,6 +1543,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Tidak Berpenghasilan',
                       ]}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('penghasilan_ayah_id_str')}
                     />
                     <InputField
                       label="WhatsApp Ayah"
@@ -1142,6 +1552,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       keyboardType="phone-pad"
                       value={formData.no_wa_ayah}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_wa_ayah')}
                     />
                   </FormSection>
 
@@ -1152,12 +1563,14 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={User}
                       value={formData.nama_ibu}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('nama_ibu')}
                     />
                     <DateField
                       label="Tgl Lahir Ibu"
                       fieldKey="tahun_lahir_ibu"
                       value={formData.tahun_lahir_ibu}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('tahun_lahir_ibu')}
                     />
                     <InputField
                       label="Pekerjaan"
@@ -1165,6 +1578,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Info}
                       value={formData.pekerjaan_ibu_id_str}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('pekerjaan_ibu_id_str')}
                     />
                     <SelectField
                       label="Penghasilan"
@@ -1181,6 +1595,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Tidak Berpenghasilan',
                       ]}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('penghasilan_ibu_id_str')}
                     />
                     <InputField
                       label="WhatsApp Ibu"
@@ -1189,6 +1604,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       keyboardType="phone-pad"
                       value={formData.no_wa_ibu}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_wa_ibu')}
                     />
                   </FormSection>
 
@@ -1199,12 +1615,14 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={User}
                       value={formData.nama_wali}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('nama_wali')}
                     />
                     <DateField
                       label="Tgl Lahir Wali"
                       fieldKey="tahun_lahir_wali"
                       value={formData.tahun_lahir_wali}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('tahun_lahir_wali')}
                     />
                     <InputField
                       label="Pekerjaan"
@@ -1212,6 +1630,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Info}
                       value={formData.pekerjaan_wali_id_str}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('pekerjaan_wali_id_str')}
                     />
                     <SelectField
                       label="Penghasilan"
@@ -1228,6 +1647,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Tidak Berpenghasilan',
                       ]}
                       onSelect={handleChange}
+                      isPending={pendingFields.includes('penghasilan_wali_id_str')}
                     />
                     <InputField
                       label="WhatsApp Wali"
@@ -1236,6 +1656,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       keyboardType="phone-pad"
                       value={formData.no_wa_wali}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('no_wa_wali')}
                     />
                   </FormSection>
                 </>
@@ -1272,6 +1693,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
           title={alertConfig.title}
           message={alertConfig.message}
           onClose={alertConfig.onClose}
+          children={alertConfig.children}
         />
       </SafeAreaView>
     </BottomSheetModalProvider>

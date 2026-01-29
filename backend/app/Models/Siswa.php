@@ -173,4 +173,9 @@ class Siswa extends Model
     {
         return $this->belongsTo(Sekolah::class, 'sekolah_id', 'sekolah_id');
     }
+
+    public function pengajuan_perubahan()
+    {
+        return $this->hasMany(PengajuanPerubahanSiswa::class, 'siswa_id');
+    }
 }

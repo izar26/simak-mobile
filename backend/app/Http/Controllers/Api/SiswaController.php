@@ -96,6 +96,18 @@ class SiswaController extends Controller
         $directChanges = [];
         $pendingChanges = [];
 
+        // AMBIL DATA PENDING YANG SUDAH ADA (Untuk mencegah duplikasi)
+        $existingPending = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
+            ->where('status', 'pending')
+            ->get()
+            ->pluck('data_perubahan') // Ambil kolom JSON
+            ->map(function ($item) {
+                // Pastikan jadi array
+                return is_string($item) ? json_decode($item, true) : $item;
+            })
+            ->collapse() // Gabungkan semua request pending jadi satu array flat
+            ->toArray();
+
         // 1. Handle Foto
         if ($request->hasFile('foto')) {
             $request->validate(['foto' => 'image|mimes:jpeg,png,jpg|max:2048']);
@@ -148,14 +160,23 @@ class SiswaController extends Controller
             }
             $oldVal = ($dbValRaw === '' || $dbValRaw === 'null' || is_null($dbValRaw)) ? '' : trim((string)$dbValRaw);
 
+            // Ambil Nilai PENDING (Jika ada)
+            $pendingValRaw = $existingPending[$key] ?? null;
+            $pendingVal = ($pendingValRaw === null) ? null : trim((string)$pendingValRaw);
+
             // Normalisasi khusus TANGGAL (Ambil YYYY-MM-DD saja)
-            // Tanpa zona waktu, cukup potong stringnya mentah-mentah
             if (str_contains($key, 'tanggal') || str_contains($key, 'date')) {
                 if ($newVal) $newVal = substr($newVal, 0, 10);
                 if ($oldVal) $oldVal = substr($oldVal, 0, 10);
+                if ($pendingVal) $pendingVal = substr($pendingVal, 0, 10);
             }
 
-            // BANDINGKAN: Jika sama (misal '2007-07-29' === '2007-07-29'), lewati
+            // CEK DUPLIKASI PENDING: Jika nilai baru SAMA dengan nilai yang sedang pending, SKIP.
+            if ($pendingVal !== null && $newVal === $pendingVal) {
+                continue;
+            }
+
+            // BANDINGKAN: Jika sama dengan data ASLI DB, lewati juga
             if ($newVal === $oldVal) continue;
 
             // Jika beda, tentukan masuk Pengajuan atau Langsung
@@ -188,7 +209,12 @@ class SiswaController extends Controller
 
         return response()->json([
             'message' => 'Proses pembaruan selesai',
-            'user' => $user->fresh()->load('siswa')
+            'user' => $user->fresh()->load([
+                'siswa.berkas',
+                'siswa.pengajuan_perubahan' => function ($query) {
+                    $query->where('status', 'pending');
+                }
+            ])
         ]);
     }
 
