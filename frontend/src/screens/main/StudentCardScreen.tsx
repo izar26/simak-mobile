@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
@@ -22,6 +23,33 @@ import StatusModal from '../../components/StatusModal';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
 const CARD_HEIGHT = CARD_WIDTH * 1.58; // Aspect ratio ~56mm / 88mm
+
+// Permission helper function
+const requestStoragePermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const permission =
+        Platform.Version >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
+
+      const granted = await PermissionsAndroid.request(permission, {
+        title: 'Izin Akses Penyimpanan',
+        message:
+          'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan kartu pelajar.',
+        buttonNeutral: 'Tanya Nanti',
+        buttonNegative: 'Batal',
+        buttonPositive: 'Izinkan',
+      });
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+  return true; // iOS doesn't need explicit permission request
+};
 
 const StudentCardScreen = ({ navigation, route }: any) => {
   const { user } = route.params;
@@ -50,46 +78,70 @@ const StudentCardScreen = ({ navigation, route }: any) => {
   const bgUrl = getFullUrl(sekolah?.background_kartu_siswa);
 
   const handleDownload = async () => {
+    // Request permission first
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      setAlertConfig({
+        visible: true,
+        title: 'Izin Ditolak',
+        message:
+          'Anda perlu memberikan izin akses penyimpanan untuk menyimpan kartu pelajar.',
+        type: 'error',
+        onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const uri = await viewShotRef.current.capture();
 
       const fileName = `Kartu_Pelajar_${siswa.nisn || 'Siswa'}.png`;
       const { dirs } = ReactNativeBlobUtil.fs;
-      const path = `${dirs.DownloadDir}/${fileName}`;
+      const downloadDir = dirs.DownloadDir;
 
       if (Platform.OS === 'android') {
-        ReactNativeBlobUtil.fs
-          .cp(uri, path)
-          .then(() => {
-            // Scan agar muncul di Galeri
-            ReactNativeBlobUtil.fs
-              .scanFile([{ path: path, mime: 'image/png' }])
-              .then(() => console.log('File scanned'))
-              .catch(err => console.log('Scan error', err));
+        try {
+          // Ensure download directory exists
+          const isDir = await ReactNativeBlobUtil.fs.isDir(downloadDir);
+          if (!isDir) {
+            await ReactNativeBlobUtil.fs.mkdir(downloadDir);
+          }
 
-            // GANTI Alert.alert DENGAN StatusModal SUKSES
-            setAlertConfig({
-              visible: true,
-              title: 'Berhasil Disimpan!',
-              message: `Kartu pelajar berhasil disimpan di folder Download.\n(${fileName})`,
-              type: 'success',
-              onClose: () =>
-                setAlertConfig(prev => ({ ...prev, visible: false })),
-            });
-          })
-          .catch(err => {
-            console.error('Copy Error:', err);
-            // GANTI Alert.alert DENGAN StatusModal ERROR
-            setAlertConfig({
-              visible: true,
-              title: 'Gagal Menyimpan',
-              message: 'Gagal menyalin kartu ke folder publik.',
-              type: 'error',
-              onClose: () =>
-                setAlertConfig(prev => ({ ...prev, visible: false })),
-            });
+          const path = `${downloadDir}/${fileName}`;
+
+          // Copy file to downloads
+          await ReactNativeBlobUtil.fs.cp(uri, path);
+
+          // Trigger media scanner to show in gallery
+          await ReactNativeBlobUtil.fs.scanFile([
+            {
+              path,
+              mime: 'image/png',
+            },
+          ]);
+
+          setAlertConfig({
+            visible: true,
+            title: 'Berhasil Disimpan!',
+            message: `Kartu pelajar berhasil disimpan di folder Download.\n(${fileName})`,
+            type: 'success',
+            onClose: () =>
+              setAlertConfig(prev => ({ ...prev, visible: false })),
           });
+        } catch (err) {
+          console.error('Download Error:', err);
+          setAlertConfig({
+            visible: true,
+            title: 'Gagal Menyimpan',
+            message: `Error: ${
+              err.message || 'Gagal menyalin kartu ke folder Download.'
+            }`,
+            type: 'error',
+            onClose: () =>
+              setAlertConfig(prev => ({ ...prev, visible: false })),
+          });
+        }
       } else {
         // iOS handling
         setAlertConfig({
@@ -102,7 +154,6 @@ const StudentCardScreen = ({ navigation, route }: any) => {
       }
     } catch (error) {
       console.error(error);
-      // GANTI Alert.alert DENGAN StatusModal ERROR
       setAlertConfig({
         visible: true,
         title: 'Terjadi Kesalahan',

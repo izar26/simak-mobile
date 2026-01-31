@@ -12,6 +12,7 @@ import {
   StatusBar,
   Modal,
   TouchableWithoutFeedback,
+  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -217,6 +218,33 @@ const ConfirmModal = ({
       </View>
     </Modal>
   );
+};
+
+// ✅ PERMISSION HELPER
+const requestStoragePermission = async () => {
+  if (Platform.OS === 'android') {
+    try {
+      const permission =
+        Platform.Version >= 33
+          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+          : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
+
+      const granted = await PermissionsAndroid.request(permission, {
+        title: 'Izin Akses Penyimpanan',
+        message:
+          'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan file unduhan.',
+        buttonNeutral: 'Tanya Nanti',
+        buttonNegative: 'Batal',
+        buttonPositive: 'Izinkan',
+      });
+
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+  return true; // iOS doesn't need explicit permission request
 };
 
 // ✅ MEMOIZED SUB-COMPONENTS
@@ -491,43 +519,98 @@ const HomeScreen = ({ navigation }: any) => {
       return;
     }
 
+    // Request permission first
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      setModalStatus({
+        visible: true,
+        type: 'error',
+        title: 'Izin Ditolak',
+        message:
+          'Anda perlu memberikan izin akses penyimpanan untuk mengunduh file.',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const token = await getToken();
       const { dirs } = ReactNativeBlobUtil.fs;
       const fileName = `Biodata_${siswa.nama.replace(/\s+/g, '_')}.pdf`;
-      const path =
-        Platform.OS === 'android'
-          ? `${dirs.DownloadDir}/${fileName}`
-          : `${dirs.DocumentDir}/${fileName}`;
 
-      await ReactNativeBlobUtil.config({
-        fileCache: true,
-        addAndroidDownloads: {
-          useDownloadManager: true,
-          notification: true,
-          path: path,
-          description: 'Mengunduh Biodata Siswa...',
-          mediaScannable: true,
-          title: fileName,
-          mime: 'application/pdf',
-        },
-      })
-        .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
-          Authorization: `Bearer ${token}`,
+      if (Platform.OS === 'android') {
+        const downloadDir = dirs.DownloadDir;
+
+        try {
+          // Ensure download directory exists
+          const isDir = await ReactNativeBlobUtil.fs.isDir(downloadDir);
+          if (!isDir) {
+            await ReactNativeBlobUtil.fs.mkdir(downloadDir);
+          }
+
+          const path = `${downloadDir}/${fileName}`;
+
+          await ReactNativeBlobUtil.config({
+            fileCache: true,
+            addAndroidDownloads: {
+              useDownloadManager: true,
+              notification: true,
+              path: path,
+              description: 'Mengunduh Biodata Siswa...',
+              mediaScannable: true,
+              title: fileName,
+              mime: 'application/pdf',
+            },
+          })
+            .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
+              Authorization: `Bearer ${token}`,
+            })
+            .then(res => {
+              // Trigger media scanner
+              ReactNativeBlobUtil.fs
+                .scanFile([
+                  {
+                    path: res.path(),
+                    mime: 'application/pdf',
+                  },
+                ])
+                .catch(err => console.log('Scan error:', err));
+
+              setModalStatus({
+                visible: true,
+                type: 'success',
+                title: 'Unduhan Berhasil!',
+                message: `File tersimpan di folder Download sebagai ${fileName}`,
+              });
+            });
+        } catch (error) {
+          console.error('Android download error:', error);
+          setModalStatus({
+            visible: true,
+            type: 'error',
+            title: 'Gagal Mengunduh',
+            message: `Error: ${error.message || 'Tidak dapat mengunduh file.'}`,
+          });
+        }
+      } else {
+        // iOS handling
+        const path = `${dirs.DocumentDir}/${fileName}`;
+        await ReactNativeBlobUtil.config({
+          fileCache: true,
         })
-        .then(res => {
-          if (Platform.OS === 'ios') {
+          .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
+            Authorization: `Bearer ${token}`,
+          })
+          .then(res => {
             ReactNativeBlobUtil.ios.previewDocument(res.path());
-          } else {
             setModalStatus({
               visible: true,
               type: 'success',
-              title: 'Unduhan Berhasil!',
-              message: `File tersimpan di folder Download sebagai ${fileName}`,
+              title: 'Berhasil!',
+              message: 'File PDF telah dibuka',
             });
-          }
-        });
+          });
+      }
     } catch (error) {
       console.error('Download error:', error);
       setModalStatus({

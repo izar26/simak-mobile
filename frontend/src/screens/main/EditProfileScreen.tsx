@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
 import {
   View,
   Text,
@@ -84,6 +90,23 @@ const lockedColumns = [
 
 const disabledColumns = ['nipd', 'nisn', 'kebutuhan_khusus', 'email_akun'];
 
+// Helper function to extract year from date string or Date object
+const extractYear = (dateValue: any): string => {
+  if (!dateValue) return '';
+
+  // If it's a Date object, extract year
+  if (dateValue instanceof Date) {
+    return dateValue.getFullYear().toString();
+  }
+
+  // Convert to string
+  const dateString = String(dateValue).trim();
+
+  // Handle formats like YYYY-MM-DD, YYYY/MM/DD, or just YYYY
+  const match = dateString.match(/(\d{4})/);
+  return match ? match[1] : '';
+};
+
 const InputField = ({
   label,
   fieldKey,
@@ -164,7 +187,11 @@ const InputField = ({
         />
         <TextInput
           className={`flex-1 ml-3 font-semibold text-sm h-full ${
-            isDisabled ? 'text-slate-400' : isPending ? 'text-yellow-800' : 'text-slate-800'
+            isDisabled
+              ? 'text-slate-400'
+              : isPending
+              ? 'text-yellow-800'
+              : 'text-slate-800'
           }`}
           editable={!isDisabled && !isPending}
           pointerEvents={isPending ? 'none' : 'auto'}
@@ -953,7 +980,8 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                 </Text>
               ))}
               <Text className="text-slate-400 text-[10px] italic mt-2 ml-6 leading-4">
-                * Data ini butuh verifikasi admin sekolah sebelum berubah di profil.
+                * Data ini butuh verifikasi admin sekolah sebelum berubah di
+                profil.
               </Text>
             </View>
           )}
@@ -965,7 +993,8 @@ const EditProfileScreen = ({ navigation, route }: any) => {
         setAlertConfig({
           visible: true,
           title: 'Laporan Perubahan',
-          message: 'Beberapa data berhasil disimpan, namun ada yang memerlukan persetujuan sekolah.',
+          message:
+            'Beberapa data berhasil disimpan, namun ada yang memerlukan persetujuan sekolah.',
           type: 'warning',
           children: detailContent,
           onClose: () => {
@@ -977,7 +1006,8 @@ const EditProfileScreen = ({ navigation, route }: any) => {
         setAlertConfig({
           visible: true,
           title: 'Berhasil Disimpan!',
-          message: 'Semua perubahan data profil Anda telah berhasil diperbarui.',
+          message:
+            'Semua perubahan data profil Anda telah berhasil diperbarui.',
           type: 'success',
           children: detailContent,
           onClose: () => {
@@ -987,13 +1017,72 @@ const EditProfileScreen = ({ navigation, route }: any) => {
         });
       }
     } catch (error: any) {
-      setAlertConfig({
-        visible: true,
-        title: 'Gagal Menyimpan',
-        message: 'Terjadi kesalahan jaringan atau server.',
-        type: 'error',
-        onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-      });
+      // Handle rate limit / pengajuan limit errors
+      const status = error.response?.status;
+      const errorData = error.response?.data;
+
+      if (status === 429) {
+        // Too Many Requests - Rate limit exceeded
+        setAlertConfig({
+          visible: true,
+          title: 'Batas Pengajuan Tercapai',
+          message:
+            errorData?.detail ||
+            'Anda telah mencapai batas pengajuan perubahan data dalam 30 hari terakhir. Silakan coba lagi minggu depan.',
+          type: 'error',
+          children: (
+            <View className="bg-red-50 p-4 rounded-2xl border border-red-100 mt-4">
+              <Text className="text-red-700 text-sm font-medium">
+                📊 Statistik Pengajuan
+              </Text>
+              <Text className="text-red-600 text-xs mt-2">
+                Pengajuan dalam 30 hari: {errorData?.requests_this_month || '5'}
+                /5
+              </Text>
+              <Text className="text-red-500 text-xs italic mt-3 leading-4">
+                Sistem ini dibuat untuk mencegah spam dan menjaga kualitas
+                verifikasi data.
+              </Text>
+            </View>
+          ),
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+      } else if (status === 422) {
+        // Unprocessable Entity - Pending request exists
+        setAlertConfig({
+          visible: true,
+          title: 'Ada Pengajuan yang Sedang Diproses',
+          message:
+            errorData?.detail ||
+            'Anda masih memiliki pengajuan yang sedang diverifikasi. Silakan tunggu sampai selesai.',
+          type: 'warning',
+          children: (
+            <View className="bg-amber-50 p-4 rounded-2xl border border-amber-100 mt-4">
+              <Text className="text-amber-700 text-sm font-medium">
+                ⏳ Status Pengajuan
+              </Text>
+              <Text className="text-amber-600 text-xs mt-2">
+                Pengajuan yang sedang diproses:{' '}
+                {errorData?.pending_count || '1'}
+              </Text>
+              <Text className="text-amber-500 text-xs italic mt-3 leading-4">
+                Cek halaman Notifikasi untuk melihat status pengajuan Anda.
+              </Text>
+            </View>
+          ),
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+      } else {
+        // Generic error
+        setAlertConfig({
+          visible: true,
+          title: 'Gagal Menyimpan',
+          message:
+            errorData?.message || 'Terjadi kesalahan jaringan atau server.',
+          type: 'error',
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -1394,7 +1483,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Lainnya',
                       ]}
                       onSelect={handleChange}
-                      isPending={pendingFields.includes('alat_transportasi_id_str')}
+                      isPending={pendingFields.includes(
+                        'alat_transportasi_id_str',
+                      )}
                     />
                     <View className="flex-row gap-4">
                       <View className="flex-1">
@@ -1405,7 +1496,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                           keyboardType="numeric"
                           value={formData.jarak_rumah_ke_sekolah_km}
                           onChangeText={handleChange}
-                          isPending={pendingFields.includes('jarak_rumah_ke_sekolah_km')}
+                          isPending={pendingFields.includes(
+                            'jarak_rumah_ke_sekolah_km',
+                          )}
                         />
                       </View>
                       <View className="flex-1">
@@ -1416,7 +1509,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                           keyboardType="numeric"
                           value={formData.waktu_tempuh_menit}
                           onChangeText={handleChange}
-                          isPending={pendingFields.includes('waktu_tempuh_menit')}
+                          isPending={pendingFields.includes(
+                            'waktu_tempuh_menit',
+                          )}
                         />
                       </View>
                     </View>
@@ -1496,7 +1591,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={FileText}
                       value={formData.no_registrasi_akta_lahir}
                       onChangeText={handleChange}
-                      isPending={pendingFields.includes('no_registrasi_akta_lahir')}
+                      isPending={pendingFields.includes(
+                        'no_registrasi_akta_lahir',
+                      )}
                     />
                   </FormSection>
                 </>
@@ -1513,10 +1610,12 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       onChangeText={handleChange}
                       isPending={pendingFields.includes('nama_ayah')}
                     />
-                    <DateField
-                      label="Tgl Lahir Ayah"
+                    <InputField
+                      label="Tahun Lahir Ayah"
                       fieldKey="tahun_lahir_ayah"
-                      value={formData.tahun_lahir_ayah}
+                      icon={Calendar}
+                      keyboardType="numeric"
+                      value={extractYear(formData.tahun_lahir_ayah)}
                       onChangeText={handleChange}
                       isPending={pendingFields.includes('tahun_lahir_ayah')}
                     />
@@ -1526,7 +1625,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Info}
                       value={formData.pekerjaan_ayah_id_str}
                       onChangeText={handleChange}
-                      isPending={pendingFields.includes('pekerjaan_ayah_id_str')}
+                      isPending={pendingFields.includes(
+                        'pekerjaan_ayah_id_str',
+                      )}
                     />
                     <SelectField
                       label="Penghasilan"
@@ -1543,7 +1644,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Tidak Berpenghasilan',
                       ]}
                       onSelect={handleChange}
-                      isPending={pendingFields.includes('penghasilan_ayah_id_str')}
+                      isPending={pendingFields.includes(
+                        'penghasilan_ayah_id_str',
+                      )}
                     />
                     <InputField
                       label="WhatsApp Ayah"
@@ -1565,10 +1668,12 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       onChangeText={handleChange}
                       isPending={pendingFields.includes('nama_ibu')}
                     />
-                    <DateField
-                      label="Tgl Lahir Ibu"
+                    <InputField
+                      label="Tahun Lahir Ibu"
                       fieldKey="tahun_lahir_ibu"
-                      value={formData.tahun_lahir_ibu}
+                      icon={Calendar}
+                      keyboardType="numeric"
+                      value={extractYear(formData.tahun_lahir_ibu)}
                       onChangeText={handleChange}
                       isPending={pendingFields.includes('tahun_lahir_ibu')}
                     />
@@ -1595,7 +1700,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Tidak Berpenghasilan',
                       ]}
                       onSelect={handleChange}
-                      isPending={pendingFields.includes('penghasilan_ibu_id_str')}
+                      isPending={pendingFields.includes(
+                        'penghasilan_ibu_id_str',
+                      )}
                     />
                     <InputField
                       label="WhatsApp Ibu"
@@ -1617,10 +1724,12 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       onChangeText={handleChange}
                       isPending={pendingFields.includes('nama_wali')}
                     />
-                    <DateField
-                      label="Tgl Lahir Wali"
+                    <InputField
+                      label="Tahun Lahir Wali"
                       fieldKey="tahun_lahir_wali"
-                      value={formData.tahun_lahir_wali}
+                      icon={Calendar}
+                      keyboardType="numeric"
+                      value={extractYear(formData.tahun_lahir_wali)}
                       onChangeText={handleChange}
                       isPending={pendingFields.includes('tahun_lahir_wali')}
                     />
@@ -1630,7 +1739,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                       icon={Info}
                       value={formData.pekerjaan_wali_id_str}
                       onChangeText={handleChange}
-                      isPending={pendingFields.includes('pekerjaan_wali_id_str')}
+                      isPending={pendingFields.includes(
+                        'pekerjaan_wali_id_str',
+                      )}
                     />
                     <SelectField
                       label="Penghasilan"
@@ -1647,7 +1758,9 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                         'Tidak Berpenghasilan',
                       ]}
                       onSelect={handleChange}
-                      isPending={pendingFields.includes('penghasilan_wali_id_str')}
+                      isPending={pendingFields.includes(
+                        'penghasilan_wali_id_str',
+                      )}
                     />
                     <InputField
                       label="WhatsApp Wali"
