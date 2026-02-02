@@ -6,25 +6,26 @@ import {
   SectionList,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
-  Bell,
   CheckCircle,
   XCircle,
   Clock,
   Info,
-  Calendar,
-  AlertCircle,
+  X,
+  FileText,
+  AlertTriangle,
 } from 'lucide-react-native';
 import api from '../services/api';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { logger } from '../utils/logger';
-import { handleApiError, logError } from '../utils/errorHandler';
 
 const NotificationScreen = ({ navigation }: any) => {
   const [sections, setSections] = useState<any[]>([]);
@@ -32,16 +33,37 @@ const NotificationScreen = ({ navigation }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [lastReadTime, setLastReadTime] = useState<number>(Date.now());
 
+  // STATE MODAL
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
   useEffect(() => {
-    // 1. Ambil waktu terakhir baca
-    AsyncStorage.getItem('last_read_time').then(time => {
+    const loadInitialData = async () => {
+      // 1. Load Waktu Baca Terakhir
+      const time = await AsyncStorage.getItem('last_read_time');
       if (time) setLastReadTime(parseInt(time));
-      else setLastReadTime(0); // Belum pernah baca
+      else setLastReadTime(0);
 
+      // 2. CEK CACHE DULU (Agar user tidak menunggu loading spinner)
+      const cachedData = await AsyncStorage.getItem('notif_cache');
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          // Langsung tampilkan data lama
+          setSections(groupNotifications(parsed));
+          setLoading(false);
+        } catch (e) {
+          console.log('Cache error', e);
+        }
+      }
+
+      // 3. Ambil data baru di background (Silent Update)
       fetchNotifications();
-    });
+    };
 
-    // 2. Saat keluar (unmount), update waktu baca ke sekarang
+    loadInitialData();
+
+    // Update waktu baca saat keluar halaman
     return () => {
       const now = Date.now();
       AsyncStorage.setItem('last_read_time', now.toString());
@@ -62,7 +84,7 @@ const NotificationScreen = ({ navigation }: any) => {
     };
 
     data.forEach(item => {
-      const date = new Date(item.raw_date); // Pastikan backend kirim raw_date ISO
+      const date = new Date(item.raw_date);
       const diffTime = Math.abs(today.getTime() - date.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
@@ -79,7 +101,6 @@ const NotificationScreen = ({ navigation }: any) => {
       }
     });
 
-    // Convert object to array for SectionList, removing empty sections
     return Object.keys(groups)
       .map(title => ({ title, data: groups[title] }))
       .filter(section => section.data.length > 0);
@@ -88,14 +109,16 @@ const NotificationScreen = ({ navigation }: any) => {
   const fetchNotifications = async () => {
     try {
       const response = await api.get('/siswa/notifikasi');
-      const grouped = groupNotifications(response.data);
-      setSections(grouped);
 
-      // Mark as read (save total count)
+      // Simpan ke Cache
+      await AsyncStorage.setItem('notif_cache', JSON.stringify(response.data));
       await AsyncStorage.setItem(
         'last_seen_notif_count',
         response.data.length.toString(),
       );
+
+      const grouped = groupNotifications(response.data);
+      setSections(grouped);
     } catch (error) {
       console.log('Error fetching notifications:', error);
     } finally {
@@ -118,6 +141,7 @@ const NotificationScreen = ({ navigation }: any) => {
           bg: 'bg-emerald-50',
           border: 'border-emerald-500',
           text: 'text-emerald-700',
+          gradient: ['#d1fae5', '#ffffff'],
         };
       case 'error':
         return {
@@ -126,6 +150,7 @@ const NotificationScreen = ({ navigation }: any) => {
           bg: 'bg-red-50',
           border: 'border-red-500',
           text: 'text-red-700',
+          gradient: ['#fee2e2', '#ffffff'],
         };
       default:
         return {
@@ -134,75 +159,85 @@ const NotificationScreen = ({ navigation }: any) => {
           bg: 'bg-amber-50',
           border: 'border-amber-500',
           text: 'text-amber-700',
+          gradient: ['#fef3c7', '#ffffff'],
         };
     }
   };
 
-  const renderItem = ({ item, index }: any) => {
-    const theme = getTheme(item.type);
-    const Icon = theme.icon;
+  const formatLabel = (key: string) => {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
-    // Cek apakah notifikasi baru (lebih baru dari terakhir dibuka)
-    const itemTime = new Date(item.raw_date).getTime();
-    const isNew = itemTime > lastReadTime;
+  const handleOpenDetail = (item: any) => {
+    setSelectedItem(item);
+    setModalVisible(true);
+  };
 
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 100).duration(600)}
-        className={`mb-4 bg-white rounded-2xl shadow-sm border overflow-hidden flex-row ${
-          isNew ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100'
-        }`}
-      >
-        {/* Left Border Indicator */}
-        <View
-          className={`w-1.5 h-full ${theme.bg}`}
-          style={{ backgroundColor: theme.color }}
-        />
+  // Gunakan useCallback agar item tidak render ulang saat modal dibuka (Mencegah kedip)
+  const renderItem = useCallback(
+    ({ item, index }: any) => {
+      const theme = getTheme(item.type);
+      const Icon = theme.icon;
+      const itemTime = new Date(item.raw_date).getTime();
+      const isNew = itemTime > lastReadTime;
 
-        <View className="flex-1 p-4">
-          <View className="flex-row items-start justify-between mb-2">
-            <View className="flex-row items-center flex-1 mr-2">
-              <View className={`${theme.bg} p-1.5 rounded-full mr-2`}>
-                <Icon size={16} color={theme.color} />
-              </View>
-              <Text
-                className={`font-bold text-sm ${theme.text} flex-1`}
-                numberOfLines={1}
-              >
-                {item.title}
-              </Text>
-              {isNew && (
-                <View className="bg-red-500 px-2 py-0.5 rounded-full ml-2 animate-pulse">
-                  <Text className="text-white text-[8px] font-bold">BARU</Text>
+      return (
+        <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleOpenDetail(item)}
+            className={`mb-4 bg-white rounded-2xl shadow-sm border overflow-hidden flex-row ${
+              isNew ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100'
+            }`}
+          >
+            <View
+              className={`w-1.5 h-full ${theme.bg}`}
+              style={{ backgroundColor: theme.color }}
+            />
+            <View className="flex-1 p-4">
+              <View className="flex-row items-start justify-between mb-2">
+                <View className="flex-row items-center flex-1 mr-2">
+                  <View className={`${theme.bg} p-1.5 rounded-full mr-2`}>
+                    <Icon size={16} color={theme.color} />
+                  </View>
+                  <Text
+                    className={`font-bold text-sm ${theme.text} flex-1`}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                  {isNew && (
+                    <View className="bg-red-500 px-2 py-0.5 rounded-full ml-2 animate-pulse">
+                      <Text className="text-white text-[8px] font-bold">
+                        BARU
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-            <Text className="text-slate-400 text-[10px] font-medium mt-1">
-              {item.date}
-            </Text>
-          </View>
-
-          <Text className="text-slate-600 text-sm leading-5 mb-2 pl-9">
-            {item.message}
-          </Text>
-
-          {item.catatan && (
-            <View className="ml-9 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-              <View className="flex-row items-center mb-1">
-                <Info size={12} color="#64748b" />
-                <Text className="text-slate-500 text-[10px] font-bold ml-1 uppercase">
-                  Catatan Operator
+                <Text className="text-slate-400 text-[10px] font-medium mt-1">
+                  {item.date}
                 </Text>
               </View>
-              <Text className="text-slate-700 text-xs italic">
-                "{item.catatan}"
+
+              <Text
+                className="text-slate-600 text-sm leading-5 mb-2 pl-9"
+                numberOfLines={2}
+              >
+                {item.message}
               </Text>
+
+              <View className="flex-row justify-end mt-1">
+                <Text className="text-blue-500 text-[10px] font-bold">
+                  Ketuk untuk detail
+                </Text>
+              </View>
             </View>
-          )}
-        </View>
-      </Animated.View>
-    );
-  };
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    },
+    [lastReadTime],
+  );
 
   const renderSectionHeader = ({ section: { title } }: any) => (
     <View className="flex-row items-center mb-3 mt-2">
@@ -217,7 +252,6 @@ const NotificationScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
-      {/* Header */}
       <LinearGradient
         colors={['#3b82f6', '#1d4ed8']}
         start={{ x: 0, y: 0 }}
@@ -237,8 +271,8 @@ const NotificationScreen = ({ navigation }: any) => {
         <View className="w-10" />
       </LinearGradient>
 
-      {/* Content */}
-      {loading ? (
+      {/* Tampilkan Loading hanya jika tidak ada cache DAN sedang fetch awal */}
+      {loading && sections.length === 0 ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#2563eb" />
         </View>
@@ -271,6 +305,185 @@ const NotificationScreen = ({ navigation }: any) => {
           }
         />
       )}
+
+      {/* --- MODAL DETAIL --- */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center px-4">
+          <View className="bg-white w-full rounded-3xl overflow-hidden max-h-[85%] shadow-2xl">
+            {selectedItem &&
+              (() => {
+                const theme = getTheme(selectedItem.type);
+                const Icon = theme.icon;
+
+                // Parse data JSON
+                let dataPerubahan = null;
+                if (selectedItem.data_perubahan) {
+                  try {
+                    dataPerubahan =
+                      typeof selectedItem.data_perubahan === 'string'
+                        ? JSON.parse(selectedItem.data_perubahan)
+                        : selectedItem.data_perubahan;
+                  } catch (e) {}
+                }
+
+                // Tentukan Judul List berdasarkan Status
+                let listTitle = 'Rincian Data:';
+                let listColor = 'text-slate-800';
+                if (selectedItem.type === 'error') {
+                  listTitle = 'Kolom yang Ditolak:'; // JUDUL KHUSUS DITOLAK
+                  listColor = 'text-red-600';
+                } else if (selectedItem.type === 'success') {
+                  listTitle = 'Data yang Disetujui:';
+                  listColor = 'text-emerald-600';
+                }
+
+                return (
+                  <>
+                    <LinearGradient
+                      colors={theme.gradient}
+                      className="p-6 items-center border-b border-slate-100"
+                    >
+                      <View
+                        className={`p-4 rounded-full bg-white mb-3 shadow-sm ${theme.border} border`}
+                      >
+                        <Icon size={40} color={theme.color} />
+                      </View>
+                      <Text
+                        className={`text-lg font-black text-center ${theme.text} mb-1`}
+                      >
+                        {selectedItem.title}
+                      </Text>
+                      <Text className="text-slate-400 text-xs font-medium">
+                        {selectedItem.date}
+                      </Text>
+                    </LinearGradient>
+
+                    <ScrollView
+                      className="p-6"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text className="text-slate-700 text-center text-sm leading-6 mb-6">
+                        {selectedItem.message}
+                      </Text>
+
+                      {/* Catatan Operator */}
+                      {selectedItem.catatan && (
+                        <View className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
+                          <View className="flex-row items-center mb-2">
+                            <Info size={14} color="#64748b" />
+                            <Text className="text-slate-500 text-xs font-bold ml-2 uppercase">
+                              Catatan Operator
+                            </Text>
+                          </View>
+                          <Text className="text-slate-800 text-sm italic font-medium">
+                            "{selectedItem.catatan}"
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Rincian Data (Dinamis sesuai Status) */}
+                      {dataPerubahan &&
+                      Object.keys(dataPerubahan).length > 0 ? (
+                        <View className="mb-6">
+                          <View className="flex-row items-center mb-3">
+                            {selectedItem.type === 'error' && (
+                              <AlertTriangle
+                                size={16}
+                                color="#dc2626"
+                                style={{ marginRight: 6 }}
+                              />
+                            )}
+                            <Text className={`${listColor} font-bold text-sm`}>
+                              {listTitle}
+                            </Text>
+                          </View>
+
+                          <View
+                            className={`bg-white border rounded-xl overflow-hidden ${
+                              selectedItem.type === 'error'
+                                ? 'border-red-100'
+                                : 'border-slate-100'
+                            }`}
+                          >
+                            {Object.keys(dataPerubahan).map((key, i) => (
+                              <View
+                                key={key}
+                                className={`flex-row p-3 ${
+                                  i !== Object.keys(dataPerubahan).length - 1
+                                    ? 'border-b border-slate-50'
+                                    : ''
+                                } ${
+                                  selectedItem.type === 'error'
+                                    ? 'bg-red-50/30'
+                                    : ''
+                                }`}
+                              >
+                                <View
+                                  className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
+                                    selectedItem.type === 'error'
+                                      ? 'bg-red-100'
+                                      : 'bg-blue-50'
+                                  }`}
+                                >
+                                  <FileText
+                                    size={14}
+                                    color={
+                                      selectedItem.type === 'error'
+                                        ? '#ef4444'
+                                        : '#3b82f6'
+                                    }
+                                  />
+                                </View>
+                                <View className="flex-1">
+                                  <Text className="text-slate-400 text-[10px] font-bold uppercase mb-0.5">
+                                    {formatLabel(key)}
+                                  </Text>
+                                  <Text
+                                    className={`text-sm font-semibold ${
+                                      selectedItem.type === 'error'
+                                        ? 'text-red-800 decoration-slate-400'
+                                        : 'text-slate-800'
+                                    }`}
+                                  >
+                                    {dataPerubahan[key] || '-'}
+                                  </Text>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      ) : (
+                        // Jika tidak ada data perubahan tapi ditolak (Jaga-jaga)
+                        selectedItem.type === 'error' && (
+                          <Text className="text-center text-slate-400 text-xs italic">
+                            Tidak ada rincian data spesifik.
+                          </Text>
+                        )
+                      )}
+                    </ScrollView>
+
+                    <View className="p-4 border-t border-slate-50 bg-white">
+                      <TouchableOpacity
+                        onPress={() => setModalVisible(false)}
+                        className="bg-slate-100 h-12 rounded-xl items-center justify-center flex-row active:bg-slate-200"
+                      >
+                        <X size={18} color="#475569" />
+                        <Text className="text-slate-600 font-bold ml-2">
+                          Tutup
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                );
+              })()}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

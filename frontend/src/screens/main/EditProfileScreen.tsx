@@ -16,6 +16,7 @@ import {
   Image,
   Dimensions,
   InteractionManager,
+  LogBox,
   ScrollView,
   Alert, // Tambahkan Alert
   RefreshControl, // Tambahkan RefreshControl
@@ -91,6 +92,9 @@ const lockedColumns = [
 
 const disabledColumns = ['nipd', 'nisn', 'kebutuhan_khusus', 'email_akun'];
 
+LogBox.ignoreLogs([
+  '[Reanimated] Reading from `value` during component render',
+]);
 // Helper function to extract year from date string or Date object
 const extractYear = (dateValue: any): string => {
   if (!dateValue) return '';
@@ -716,6 +720,10 @@ const formatLabel = (key: string) => {
 
 const EditProfileScreen = ({ navigation, route }: any) => {
   const { user } = route.params;
+  // Gunakan useState agar angkanya bisa update real-time
+  const [historyCount, setHistoryCount] = useState(
+    user?.siswa?.pengajuan_perubahan?.length || 0,
+  );
   const initialDataRef = useRef<any>(null); // Simpan data awal untuk perbandingan
 
   // 1. EKSTRAK DATA PENDING (Agar yang tampil adalah data yang diajukan, bukan data lama)
@@ -778,6 +786,19 @@ const EditProfileScreen = ({ navigation, route }: any) => {
         },
       });
       const userData = freshData.data;
+
+      if (userData.siswa?.pengajuan_perubahan) {
+        setHistoryCount(userData.siswa.pengajuan_perubahan.length);
+      }
+      if (userData.siswa?.pengajuan_perubahan) {
+        console.log(
+          'Mengupdate jumlah history menjadi:',
+          userData.siswa.pengajuan_perubahan.length,
+        );
+        setHistoryCount(userData.siswa.pengajuan_perubahan.length);
+      } else {
+        console.log('Tidak ada data pengajuan_perubahan dari server');
+      }
 
       if (userData && userData.username) {
         // HAPUS LOGIKA CACHE DISINI. Edit Profil = Selalu Live Data.
@@ -1118,70 +1139,72 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       }
     } catch (error: any) {
       // Handle rate limit / pengajuan limit errors
-      const status = error.response?.status;
-      const errorData = error.response?.data;
+      const status = error.response?.status || error.status;
+      const errorData = error.response?.data || error;
 
-     if (status === 429) {
-       // Too Many Requests - Lifetime limit reached
-       setAlertConfig({
-         visible: true,
-         title: 'Batas Pengajuan Tercapai',
-         message:
-           errorData?.detail ||
-           'Anda telah mencapai batas maksimal (3x) pengajuan perubahan data. Silakan hubungi admin sekolah jika ada data mendesak yang perlu diubah.',
-         type: 'error',
-         children: (
-           <View className="bg-red-50 p-4 rounded-2xl border border-red-100 mt-4">
-             <Text className="text-red-700 text-sm font-medium">
-               📊 Statistik Pengajuan
-             </Text>
-             <Text className="text-red-600 text-xs mt-2">
-               Total Pengajuan Seumur Hidup: {errorData?.total_requests || '3'}{' '}
-               / 3
-             </Text>
-             <Text className="text-red-500 text-xs italic mt-3 leading-4">
-               Kebijakan sekolah membatasi perubahan data mandiri hanya sebanyak
-               3 kali untuk menjaga integritas data.
-             </Text>
-           </View>
-         ),
-         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-       });
-     } else if (status === 422) {
-       // Unprocessable Entity - Pending request exists
-       setAlertConfig({
-         visible: true,
-         title: 'Ada Pengajuan yang Sedang Diproses',
-         message:
-           errorData?.detail ||
-           'Anda masih memiliki pengajuan yang sedang diverifikasi. Silakan tunggu sampai selesai.',
-         type: 'warning',
-         children: (
-           <View className="bg-amber-50 p-4 rounded-2xl border border-amber-100 mt-4">
-             <Text className="text-amber-700 text-sm font-medium">
-               ⏳ Status Pengajuan
-             </Text>
-             <Text className="text-amber-600 text-xs mt-2">
-               Pengajuan yang sedang diproses: {errorData?.pending_count || '1'}
-             </Text>
-             <Text className="text-amber-500 text-xs italic mt-3 leading-4">
-               Cek halaman Notifikasi untuk melihat status pengajuan Anda.
-             </Text>
-           </View>
-         ),
-         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-       });
-     } else {
-       // Generic error
-       setAlertConfig({
-         visible: true,
-         title: 'Gagal Menyimpan',
-         message:
-           errorData?.message || 'Terjadi kesalahan jaringan atau server.',
-         type: 'error',
-         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-       });
-     }
+      if (status === 429) {
+        // Too Many Requests - Lifetime limit reached
+        setAlertConfig({
+          visible: true,
+          title: 'Batas Pengajuan Tercapai',
+          message:
+            errorData?.message ||
+            errorData?.detail ||
+            'Batas pengajuan tercapai silahkan hubungu admin.',
+          type: 'error',
+          children: (
+            <View className="bg-red-50 p-4 rounded-2xl border border-red-100 mt-4">
+              <Text className="text-red-700 text-sm font-medium">
+                📊 Statistik Pengajuan
+              </Text>
+              <Text className="text-red-600 text-xs mt-2">
+                Total Pengajuan Seumur Hidup: {errorData?.total_requests || '3'}{' '}
+                / 3
+              </Text>
+              <Text className="text-red-500 text-xs italic mt-3 leading-4">
+                Kebijakan sekolah membatasi perubahan data mandiri hanya
+                sebanyak 3 kali untuk menjaga integritas data.
+              </Text>
+            </View>
+          ),
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+      } else if (status === 422) {
+        // Unprocessable Entity - Pending request exists
+        setAlertConfig({
+          visible: true,
+          title: 'Ada Pengajuan yang Sedang Diproses',
+          message:
+            errorData?.detail ||
+            'Anda masih memiliki pengajuan yang sedang diverifikasi. Silakan tunggu sampai selesai.',
+          type: 'warning',
+          children: (
+            <View className="bg-amber-50 p-4 rounded-2xl border border-amber-100 mt-4">
+              <Text className="text-amber-700 text-sm font-medium">
+                ⏳ Status Pengajuan
+              </Text>
+              <Text className="text-amber-600 text-xs mt-2">
+                Pengajuan yang sedang diproses:{' '}
+                {errorData?.pending_count || '1'}
+              </Text>
+              <Text className="text-amber-500 text-xs italic mt-3 leading-4">
+                Cek halaman Notifikasi untuk melihat status pengajuan Anda.
+              </Text>
+            </View>
+          ),
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+      } else {
+        // Generic error
+        setAlertConfig({
+          visible: true,
+          title: 'Gagal Menyimpan',
+          message:
+            errorData?.message || 'Terjadi kesalahan jaringan atau server.',
+          type: 'error',
+          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -1268,10 +1291,18 @@ const EditProfileScreen = ({ navigation, route }: any) => {
             <View className="items-center py-8 bg-white mb-6 border-b border-slate-50">
               <View className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex-row items-center mb-6">
                 <Info size={18} color="#2563eb" />
+                {/* Pastikan text classname tetap sama */}
                 <Text className="text-blue-700 text-[11px] ml-3 font-medium flex-1 leading-4">
                   Penting: Perubahan data mandiri dibatasi maksimal 3 kali
                   seumur hidup untuk menjaga integritas data.
+                  {/* Gunakan {'\n'} untuk baris baru */}
+                  {'\n'}
+                  {/* Bungkus statistik di dalam Text lagi (Nested Text) */}
+                  <Text className="font-bold text-blue-800">
+                    (Riwayat Pengajuan: {historyCount} / 3)
+                  </Text>
                 </Text>
+                {/* Penutup Text utama harus di sini */}
               </View>
               <TouchableOpacity
                 onPress={handleSelectPhoto}
