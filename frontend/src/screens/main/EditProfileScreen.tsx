@@ -50,6 +50,7 @@ import {
   BottomSheetModalProvider,
   BottomSheetBackdrop,
   BottomSheetScrollView,
+  BottomSheetFlatList,
 } from '@gorhom/bottom-sheet';
 import { MAIN_APP_URL } from '@env';
 import api from '../../services/api';
@@ -230,16 +231,11 @@ const CustomBottomSheet = React.forwardRef(
         backgroundStyle={{ borderRadius: 32 }}
         handleIndicatorStyle={{ backgroundColor: '#cbd5e1', width: 50 }}
       >
-        <View className="flex-1 px-6 pb-8">
+        <View className="flex-1 px-6 pb-2">
           <Text className="text-xl font-black text-slate-800 mb-6 text-center tracking-tight border-b border-slate-100 pb-4">
             {title}
           </Text>
-          <BottomSheetScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 40 }}
-          >
-            {children}
-          </BottomSheetScrollView>
+          {children}
         </View>
       </BottomSheetModal>
     );
@@ -253,20 +249,33 @@ const SelectField = ({
   value,
   options,
   onSelect,
-  isPending = false, // Prop baru
+  isPending = false,
+  disabled = false,
+  onPressDisabled,
+  onAlert,
 }: any) => {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const isLocked = lockedColumns.includes(fieldKey);
 
   const handlePress = () => {
     if (isPending) {
-      Alert.alert(
-        'Sedang Diverifikasi',
-        `Data "${label}" sedang dalam proses verifikasi sekolah. Anda tidak dapat mengubahnya sampai proses selesai.`,
-        [{ text: 'Mengerti', style: 'default' }],
-      );
+      if (onAlert) {
+        onAlert(
+          'Sedang Diverifikasi',
+          `Data "${label}" sedang dalam proses verifikasi sekolah.`,
+          'warning',
+        );
+      } else {
+        Alert.alert('Sedang Diverifikasi', `Data "${label}" sedang diproses.`);
+      }
       return;
     }
+
+    if (disabled) {
+      if (onPressDisabled) onPressDisabled();
+      return;
+    }
+
     bottomSheetRef.current?.present();
   };
 
@@ -298,10 +307,13 @@ const SelectField = ({
 
       <TouchableOpacity
         onPress={handlePress}
+        activeOpacity={disabled ? 1 : 0.7}
         className={`flex-row items-center rounded-2xl px-4 border transition-all 
         ${
           isPending
-            ? 'bg-yellow-50/30 border-yellow-300 shadow-sm shadow-yellow-100'
+            ? 'bg-yellow-50/30 border-yellow-300'
+            : disabled
+            ? 'bg-slate-100 border-slate-200'
             : isLocked
             ? 'bg-amber-50/20 border-amber-200'
             : 'bg-white border-slate-200 shadow-sm'
@@ -310,12 +322,22 @@ const SelectField = ({
       >
         <Icon
           size={20}
-          color={isPending ? '#ca8a04' : isLocked ? '#d97706' : '#94a3b8'}
+          color={
+            isPending
+              ? '#ca8a04'
+              : disabled
+              ? '#cbd5e1'
+              : isLocked
+              ? '#d97706'
+              : '#94a3b8'
+          }
         />
         <Text
           className={`flex-1 ml-3 text-sm ${
             isPending
               ? 'text-yellow-800 font-semibold'
+              : disabled
+              ? 'text-slate-400'
               : value
               ? 'text-slate-800 font-semibold'
               : 'text-slate-400'
@@ -323,47 +345,56 @@ const SelectField = ({
         >
           {value || `Pilih ${label}`}
         </Text>
-        <ChevronLeft
-          size={20}
-          color={isPending ? '#ca8a04' : '#94a3b8'}
-          style={{ transform: [{ rotate: '-90deg' }] }}
-        />
+        {!disabled && (
+          <ChevronLeft
+            size={20}
+            color={isPending ? '#ca8a04' : '#94a3b8'}
+            style={{ transform: [{ rotate: '-90deg' }] }}
+          />
+        )}
       </TouchableOpacity>
 
       <CustomBottomSheet ref={bottomSheetRef} title={`Pilih ${label}`}>
-        {options.map((option: string) => (
-          <TouchableOpacity
-            key={option}
-            onPress={() => {
-              onSelect(fieldKey, option);
-              handleCloseModal();
-            }}
-            className={`py-4 px-6 rounded-2xl mb-2 flex-row justify-between items-center ${
-              value === option
-                ? 'bg-blue-50 border border-blue-200'
-                : 'bg-slate-50 border border-transparent'
-            }`}
-          >
-            <Text
-              className={`text-base ${
-                value === option
-                  ? 'text-blue-700 font-bold'
-                  : 'text-slate-700 font-medium'
+        <BottomSheetFlatList
+          data={options}
+          keyExtractor={item => item}
+          initialNumToRender={15}
+          renderItem={({ item: option }) => (
+            <TouchableOpacity
+              onPress={() => {
+                onSelect(fieldKey, option);
+                handleCloseModal();
+              }}
+              className={`px-6 flex-row justify-between items-center border-b border-slate-100 ${
+                value === option ? 'bg-blue-50' : 'bg-white'
               }`}
+              style={{ height: 56 }}
             >
-              {option}
-            </Text>
-            {value === option && <CheckCircle size={20} color="#2563eb" />}
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          onPress={handleCloseModal}
-          className="mt-4 py-4 bg-slate-100 rounded-2xl"
-        >
-          <Text className="text-center text-slate-500 font-bold text-lg">
-            Tutup
-          </Text>
-        </TouchableOpacity>
+              <Text
+                className={`text-base ${
+                  value === option
+                    ? 'text-blue-700 font-bold'
+                    : 'text-slate-700 font-medium'
+                }`}
+                numberOfLines={1}
+              >
+                {option}
+              </Text>
+              {value === option && <CheckCircle size={20} color="#2563eb" />}
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <View className="py-10 items-center justify-center">
+              <Info size={40} color="#cbd5e1" />
+              <Text className="text-slate-400 mt-4 text-center font-medium">
+                {options.length === 0
+                  ? 'Data tidak tersedia.\nPastikan pilihan sebelumnya sudah diisi.'
+                  : 'Tidak ada pilihan.'}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{ paddingBottom: 40 }}
+        />
       </CustomBottomSheet>
     </View>
   );
@@ -474,7 +505,12 @@ const DateField = ({
   );
 };
 
-const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
+const RegionPicker = ({
+  formData,
+  onChange,
+  pendingFields = [],
+  onShowAlert,
+}: any) => {
   const [loading, setLoading] = useState(false);
   const [provinces, setProvinces] = useState<any[]>([]);
   const [regencies, setRegencies] = useState<any[]>([]);
@@ -483,12 +519,56 @@ const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
 
   const BASE_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
 
+  // 1. Load Provinsi (Selalu di awal)
   useEffect(() => {
     fetch(`${BASE_URL}/provinces.json`)
       .then(res => res.json())
       .then(data => setProvinces(data))
       .catch(console.error);
   }, []);
+
+  // 2. Auto-load Kabupaten jika Provinsi ada (Pre-fill logic)
+  useEffect(() => {
+    if (provinces.length > 0 && formData.provinsi && regencies.length === 0) {
+      const id = provinces.find(p => p.name === formData.provinsi)?.id;
+      if (id) {
+        fetch(`${BASE_URL}/regencies/${id}.json`)
+          .then(res => res.json())
+          .then(data => setRegencies(data))
+          .catch(console.error);
+      }
+    }
+  }, [provinces, formData.provinsi]);
+
+  // 3. Auto-load Kecamatan jika Kabupaten ada
+  useEffect(() => {
+    if (
+      regencies.length > 0 &&
+      formData.kabupaten_kota &&
+      districts.length === 0
+    ) {
+      const id = regencies.find(r => r.name === formData.kabupaten_kota)?.id;
+      if (id) {
+        fetch(`${BASE_URL}/districts/${id}.json`)
+          .then(res => res.json())
+          .then(data => setDistricts(data))
+          .catch(console.error);
+      }
+    }
+  }, [regencies, formData.kabupaten_kota]);
+
+  // 4. Auto-load Desa jika Kecamatan ada
+  useEffect(() => {
+    if (districts.length > 0 && formData.kecamatan && villages.length === 0) {
+      const id = districts.find(d => d.name === formData.kecamatan)?.id;
+      if (id) {
+        fetch(`${BASE_URL}/villages/${id}.json`)
+          .then(res => res.json())
+          .then(data => setVillages(data))
+          .catch(console.error);
+      }
+    }
+  }, [districts, formData.kecamatan]);
 
   const findIdByName = (list: any[], name: string) =>
     list.find(item => item.name === name)?.id;
@@ -533,6 +613,16 @@ const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
     }
   };
 
+  const handleDisabledPress = (field: string) => {
+    if (onShowAlert) {
+      onShowAlert(
+        'Belum Memilih',
+        `Silakan pilih ${field} terlebih dahulu.`,
+        'warning',
+      );
+    }
+  };
+
   return (
     <>
       <SelectField
@@ -543,6 +633,7 @@ const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
         options={provinces.map(p => p.name)}
         onSelect={handleSelectProv}
         isPending={pendingFields.includes('provinsi')}
+        onAlert={onShowAlert}
       />
       <SelectField
         label="Kabupaten / Kota"
@@ -552,6 +643,9 @@ const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
         options={regencies.map(r => r.name)}
         onSelect={handleSelectReg}
         isPending={pendingFields.includes('kabupaten_kota')}
+        disabled={!formData.provinsi}
+        onPressDisabled={() => handleDisabledPress('Provinsi')}
+        onAlert={onShowAlert}
       />
       {!regencies.length && !formData.kabupaten_kota && formData.provinsi && (
         <Text className="text-xs text-blue-500 mb-2 px-2">
@@ -566,6 +660,9 @@ const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
         options={districts.map(d => d.name)}
         onSelect={handleSelectDist}
         isPending={pendingFields.includes('kecamatan')}
+        disabled={!formData.kabupaten_kota}
+        onPressDisabled={() => handleDisabledPress('Kabupaten/Kota')}
+        onAlert={onShowAlert}
       />
       <SelectField
         label="Desa / Kelurahan"
@@ -575,6 +672,9 @@ const RegionPicker = ({ formData, onChange, pendingFields = [] }: any) => {
         options={villages.map(v => v.name)}
         onSelect={(k: any, v: any) => onChange(k, v)}
         isPending={pendingFields.includes('desa_kelurahan')}
+        disabled={!formData.kecamatan}
+        onPressDisabled={() => handleDisabledPress('Kecamatan')}
+        onAlert={onShowAlert}
       />
     </>
   );
@@ -1095,6 +1195,19 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       : `${MAIN_APP_URL}/storage/${formData.foto}?v=${photoVersion}`
     : null;
 
+  const handleShowStatus = useCallback(
+    (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+      setAlertConfig({
+        visible: true,
+        title,
+        message,
+        type,
+        onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+      });
+    },
+    [],
+  );
+
   if (!isReady) {
     return (
       <SafeAreaView className="flex-1 bg-white">
@@ -1426,6 +1539,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
                     formData={formData}
                     onChange={handleChange}
                     pendingFields={pendingFields}
+                    onShowAlert={handleShowStatus}
                   />
                   <InputField
                     label="Kode Pos"
@@ -1441,7 +1555,7 @@ const EditProfileScreen = ({ navigation, route }: any) => {
 
               {activeTab === 'Lainnya' && (
                 <>
-                  <FormSection title="Kesejahteraan" icon={Truck}>
+                  <FormSection title="Hobi & Kesejahteraan" icon={Truck}>
                     <InputField
                       label="Hobi"
                       fieldKey="hobi"
