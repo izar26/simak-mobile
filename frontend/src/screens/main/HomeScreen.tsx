@@ -263,6 +263,7 @@ const InfoItem = memo(({ label, value, icon: Icon, delay = 0 }: any) => (
     <Text
       className="text-slate-800 text-sm font-semibold leading-5"
       numberOfLines={2}
+      selectable={true}
     >
       {value || '-'}
     </Text>
@@ -282,7 +283,11 @@ const ContactChip = memo(
         <Text className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-0.5">
           {label}
         </Text>
-        <Text className="text-slate-800 text-sm font-bold" numberOfLines={1}>
+        <Text
+          className="text-slate-800 text-sm font-bold"
+          numberOfLines={1}
+          selectable={true}
+        >
           {value || '-'}
         </Text>
       </View>
@@ -456,17 +461,22 @@ const HomeScreen = ({ navigation }: any) => {
   }, [siswa?.foto, imageError]);
 
   const fullAddress = useMemo(() => {
-    if (!siswa) return 'Alamat belum diisi';
+    if (!siswa && !user?.alamat) return 'Alamat belum diisi';
+    
+    // Fallback alamat jalan: Siswa -> User
+    const jalan = siswa?.alamat || user?.alamat;
+    
     const parts = [
-      siswa.alamat,
-      `RT ${siswa.rt || '-'} / RW ${siswa.rw || '-'}`,
-      siswa.desa_kelurahan,
-      siswa.kecamatan,
-      siswa.kabupaten_kota,
-      siswa.kode_pos,
+      jalan,
+      siswa?.rt || siswa?.rw ? `RT ${siswa?.rt || '-'} / RW ${siswa?.rw || '-'}` : null,
+      siswa?.desa_kelurahan,
+      siswa?.kecamatan,
+      siswa?.kabupaten_kota,
+      siswa?.kode_pos,
     ].filter(Boolean);
-    return parts.join(', ');
-  }, [siswa]);
+    
+    return parts.length > 0 ? parts.join(', ') : 'Alamat belum lengkap';
+  }, [siswa, user]);
 
   // ✅ CALLBACKS
   const toggleSection = useCallback((key: string) => {
@@ -838,15 +848,22 @@ const HomeScreen = ({ navigation }: any) => {
               isExpanded={expandedSections.alamat}
               onToggle={toggleSection}
               theme={theme}
-              badge={siswa?.kode_pos}
             >
               <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-4">
-                <Text className="text-slate-700 font-medium text-sm leading-6">
+                <Text
+                  className="text-slate-700 font-medium text-sm leading-6"
+                  selectable={true}
+                >
                   {fullAddress}
                 </Text>
               </View>
 
               <View className="flex-row flex-wrap">
+                <InfoItem
+                  label="Alamat Jalan"
+                  value={siswa?.alamat || user?.alamat}
+                  width="100%"
+                />
                 <InfoItem
                   label="RT / RW"
                   value={`${siswa?.rt || '-'} / ${siswa?.rw || '-'}`}
