@@ -1021,68 +1021,67 @@ const EditProfileScreen = ({ navigation, route }: any) => {
       const status = error.response?.status;
       const errorData = error.response?.data;
 
-      if (status === 429) {
-        // Too Many Requests - Rate limit exceeded
-        setAlertConfig({
-          visible: true,
-          title: 'Batas Pengajuan Tercapai',
-          message:
-            errorData?.detail ||
-            'Anda telah mencapai batas pengajuan perubahan data dalam 30 hari terakhir. Silakan coba lagi minggu depan.',
-          type: 'error',
-          children: (
-            <View className="bg-red-50 p-4 rounded-2xl border border-red-100 mt-4">
-              <Text className="text-red-700 text-sm font-medium">
-                📊 Statistik Pengajuan
-              </Text>
-              <Text className="text-red-600 text-xs mt-2">
-                Pengajuan dalam 30 hari: {errorData?.requests_this_month || '5'}
-                /5
-              </Text>
-              <Text className="text-red-500 text-xs italic mt-3 leading-4">
-                Sistem ini dibuat untuk mencegah spam dan menjaga kualitas
-                verifikasi data.
-              </Text>
-            </View>
-          ),
-          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-        });
-      } else if (status === 422) {
-        // Unprocessable Entity - Pending request exists
-        setAlertConfig({
-          visible: true,
-          title: 'Ada Pengajuan yang Sedang Diproses',
-          message:
-            errorData?.detail ||
-            'Anda masih memiliki pengajuan yang sedang diverifikasi. Silakan tunggu sampai selesai.',
-          type: 'warning',
-          children: (
-            <View className="bg-amber-50 p-4 rounded-2xl border border-amber-100 mt-4">
-              <Text className="text-amber-700 text-sm font-medium">
-                ⏳ Status Pengajuan
-              </Text>
-              <Text className="text-amber-600 text-xs mt-2">
-                Pengajuan yang sedang diproses:{' '}
-                {errorData?.pending_count || '1'}
-              </Text>
-              <Text className="text-amber-500 text-xs italic mt-3 leading-4">
-                Cek halaman Notifikasi untuk melihat status pengajuan Anda.
-              </Text>
-            </View>
-          ),
-          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-        });
-      } else {
-        // Generic error
-        setAlertConfig({
-          visible: true,
-          title: 'Gagal Menyimpan',
-          message:
-            errorData?.message || 'Terjadi kesalahan jaringan atau server.',
-          type: 'error',
-          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-        });
-      }
+     if (status === 429) {
+       // Too Many Requests - Lifetime limit reached
+       setAlertConfig({
+         visible: true,
+         title: 'Batas Pengajuan Tercapai',
+         message:
+           errorData?.detail ||
+           'Anda telah mencapai batas maksimal (3x) pengajuan perubahan data. Silakan hubungi admin sekolah jika ada data mendesak yang perlu diubah.',
+         type: 'error',
+         children: (
+           <View className="bg-red-50 p-4 rounded-2xl border border-red-100 mt-4">
+             <Text className="text-red-700 text-sm font-medium">
+               📊 Statistik Pengajuan
+             </Text>
+             <Text className="text-red-600 text-xs mt-2">
+               Total Pengajuan Seumur Hidup: {errorData?.total_requests || '3'}{' '}
+               / 3
+             </Text>
+             <Text className="text-red-500 text-xs italic mt-3 leading-4">
+               Kebijakan sekolah membatasi perubahan data mandiri hanya sebanyak
+               3 kali untuk menjaga integritas data.
+             </Text>
+           </View>
+         ),
+         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+       });
+     } else if (status === 422) {
+       // Unprocessable Entity - Pending request exists
+       setAlertConfig({
+         visible: true,
+         title: 'Ada Pengajuan yang Sedang Diproses',
+         message:
+           errorData?.detail ||
+           'Anda masih memiliki pengajuan yang sedang diverifikasi. Silakan tunggu sampai selesai.',
+         type: 'warning',
+         children: (
+           <View className="bg-amber-50 p-4 rounded-2xl border border-amber-100 mt-4">
+             <Text className="text-amber-700 text-sm font-medium">
+               ⏳ Status Pengajuan
+             </Text>
+             <Text className="text-amber-600 text-xs mt-2">
+               Pengajuan yang sedang diproses: {errorData?.pending_count || '1'}
+             </Text>
+             <Text className="text-amber-500 text-xs italic mt-3 leading-4">
+               Cek halaman Notifikasi untuk melihat status pengajuan Anda.
+             </Text>
+           </View>
+         ),
+         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+       });
+     } else {
+       // Generic error
+       setAlertConfig({
+         visible: true,
+         title: 'Gagal Menyimpan',
+         message:
+           errorData?.message || 'Terjadi kesalahan jaringan atau server.',
+         type: 'error',
+         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+       });
+     }
     } finally {
       setLoading(false);
     }
@@ -1154,6 +1153,13 @@ const EditProfileScreen = ({ navigation, route }: any) => {
             }
           >
             <View className="items-center py-8 bg-white mb-6 border-b border-slate-50">
+              <View className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex-row items-center mb-6">
+                <Info size={18} color="#2563eb" />
+                <Text className="text-blue-700 text-[11px] ml-3 font-medium flex-1 leading-4">
+                  Penting: Perubahan data mandiri dibatasi maksimal 3 kali
+                  seumur hidup untuk menjaga integritas data.
+                </Text>
+              </View>
               <TouchableOpacity
                 onPress={handleSelectPhoto}
                 className="relative active:opacity-90"

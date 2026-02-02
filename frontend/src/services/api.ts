@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { API_URL } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import EncryptedStorage from 'react-native-encrypted-storage';
+import { DeviceEventEmitter } from 'react-native';
 import { logger } from '../utils/logger';
 import {
   logApiRequest,
@@ -16,11 +18,25 @@ const api = axios.create({
     Accept: 'application/json',
   },
 });
-
 // ✅ REQUEST INTERCEPTOR
 api.interceptors.request.use(
   async config => {
-    const token = await AsyncStorage.getItem('token');
+    // Prefer token from EncryptedStorage (secure), fallback to AsyncStorage
+    let token: string | null = null;
+    try {
+      const session = await EncryptedStorage.getItem('user_session');
+      if (session) {
+        const parsed = JSON.parse(session);
+        token = parsed?.token || null;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    if (!token) {
+      token = await AsyncStorage.getItem('token');
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -53,6 +69,19 @@ api.interceptors.response.use(
   },
   error => {
     const appError = handleApiError(error);
+
+    // Central handling for expired session (401)
+    if (appError.code === 'AUTH') {
+      AsyncStorage.removeItem('token').catch(() => {});
+      try {
+        EncryptedStorage.removeItem('user_session');
+      } catch {}
+      // Emit a device event so UI can listen and redirect to login if desired
+      try {
+        DeviceEventEmitter.emit('auth:expired');
+      } catch {}
+    }
+
     logger.error('API', `Error: ${appError.message}`, {
       code: appError.code,
       status: appError.statusCode,

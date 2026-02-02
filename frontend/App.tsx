@@ -1,9 +1,24 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { DeviceEventEmitter } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityIndicator, View, Text, TouchableOpacity, StatusBar, Image, Modal } from 'react-native';
-import { WifiOff, RefreshCw, GraduationCap, XCircle } from 'lucide-react-native';
+import {
+  ActivityIndicator,
+  View,
+  Text,
+  TouchableOpacity,
+  StatusBar,
+  Image,
+  Modal,
+} from 'react-native';
+import {
+  WifiOff,
+  RefreshCw,
+  GraduationCap,
+  XCircle,
+} from 'lucide-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LottieView from 'lottie-react-native';
 import './global.css';
@@ -32,12 +47,14 @@ function App() {
   const [status, setStatus] = useState<'checking' | 'connected'>('checking');
   const [initialRoute, setInitialRoute] = useState('Login');
   const [schoolData, setSchoolData] = useState(null); // Data sekolah untuk LoginScreen
-  
+
   // Error Modal State
   const [isErrorVisible, setIsErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const LOGO_URL = `${MAIN_APP_URL || 'https://simak.smakniscjr.sch.id'}/storage/logos/q3kO53UObFOXLV7d2dmYZIz8IhPRUE2CEkNHuLc5.png`;
+  const LOGO_URL = `${
+    MAIN_APP_URL || 'https://simak.smakniscjr.sch.id'
+  }/storage/logos/q3kO53UObFOXLV7d2dmYZIz8IhPRUE2CEkNHuLc5.png`;
 
   const initializeApp = useCallback(async () => {
     setStatus('checking');
@@ -45,7 +62,7 @@ function App() {
 
     try {
       console.log('Checking connection...');
-      
+
       // Health check endpoint & Get School Data
       const response = await api.get('/sekolah', { timeout: 10000 });
       setSchoolData(response.data); // Simpan data sekolah
@@ -62,7 +79,7 @@ function App() {
       setStatus('connected');
     } catch (error: any) {
       console.log('Connection Error:', error);
-      
+
       // User-friendly error messages
       let message = 'Gagal terhubung ke server sekolah.';
       if (error.code === 'ECONNABORTED') {
@@ -70,7 +87,7 @@ function App() {
       } else if (error.message === 'Network Error') {
         message = 'Tidak ada koneksi internet. Pastikan WiFi/Data aktif.';
       } else if (error.response && error.response.status >= 500) {
-         message = 'Server sekolah sedang dalam perbaikan.';
+        message = 'Server sekolah sedang dalam perbaikan.';
       }
 
       setErrorMessage(message);
@@ -83,22 +100,33 @@ function App() {
     initializeApp();
   }, [initializeApp]);
 
+  // Global listener: when token/session expired on API layer,
+  // transition back to login/check state and re-initialize.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('auth:expired', () => {
+      // Clear cached user and force re-check
+      AsyncStorage.removeItem('user').catch(() => {});
+      initializeApp();
+    });
+    return () => sub.remove();
+  }, [initializeApp]);
+
   // --- TAMPILAN: LOADING CHECK (SPLASH SCREEN) ---
   if (status === 'checking') {
     return (
       <View className="flex-1 bg-blue-600 justify-center items-center px-6">
         <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
-        
+
         {/* Animated Loading Lottie */}
         <View className="w-64 h-64 items-center justify-center">
-           <LottieView
-              source={require('./src/assets/animations/Book loading.json')}
-              autoPlay
-              loop
-              style={{ width: '100%', height: '100%' }}
-           />
+          <LottieView
+            source={require('./src/assets/animations/Book loading.json')}
+            autoPlay
+            loop
+            style={{ width: '100%', height: '100%' }}
+          />
         </View>
-        
+
         {/* Title */}
         <View className="items-center -mt-10">
           <Text className="text-white font-extrabold text-5xl tracking-[4px] text-center">
@@ -126,7 +154,6 @@ function App() {
         >
           <View className="flex-1 justify-center items-center bg-black/50 px-6">
             <View className="bg-white w-full max-w-sm rounded-3xl p-6 items-center shadow-2xl">
-              
               {/* Icon Error */}
               <View className="bg-red-50 p-4 rounded-full mb-4">
                 <WifiOff size={32} color="#ef4444" />
@@ -143,18 +170,18 @@ function App() {
               </Text>
 
               {/* Action Button */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={initializeApp}
                 className="bg-blue-600 w-full py-3.5 rounded-xl flex-row justify-center items-center active:bg-blue-700"
               >
                 <RefreshCw size={18} color="white" style={{ marginRight: 8 }} />
-                <Text className="text-white font-bold text-base">Coba Lagi</Text>
+                <Text className="text-white font-bold text-base">
+                  Coba Lagi
+                </Text>
               </TouchableOpacity>
-
             </View>
           </View>
         </Modal>
-
       </View>
     );
   }
@@ -164,22 +191,57 @@ function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <NavigationContainer>
-          <Stack.Navigator 
+          <Stack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{ headerShown: false }}
           >
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="BerkasSaya" component={BerkasScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="KartuPelajar" component={StudentCardScreen} options={{ animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="Notifikasi" component={NotificationScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Pengumuman" component={AnnouncementsScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Pelanggaran" component={PelanggaranScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="DetailPengumuman" component={AnnouncementDetailScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Keuangan" component={KeuanganScreen} options={{ animation: 'slide_from_right' }} />
-            <Stack.Screen name="Unduhan" component={UnduhanScreen} options={{ animation: 'slide_from_right' }} />
-
+            <Stack.Screen
+              name="EditProfile"
+              component={EditProfileScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="BerkasSaya"
+              component={BerkasScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="KartuPelajar"
+              component={StudentCardScreen}
+              options={{ animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="Notifikasi"
+              component={NotificationScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Pengumuman"
+              component={AnnouncementsScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Pelanggaran"
+              component={PelanggaranScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="DetailPengumuman"
+              component={AnnouncementDetailScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Keuangan"
+              component={KeuanganScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="Unduhan"
+              component={UnduhanScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>

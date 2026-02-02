@@ -16,7 +16,7 @@ import QRCode from 'react-native-qrcode-svg';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { ChevronLeft, Download } from 'lucide-react-native';
 import { MAIN_APP_URL } from '@env';
-
+const android = ReactNativeBlobUtil.android;
 // Import komponen StatusModal (pastikan path-nya sesuai struktur project Anda)
 import StatusModal from '../../components/StatusModal';
 
@@ -110,32 +110,139 @@ const StudentCardScreen = ({ navigation, route }: any) => {
 
           const path = `${downloadDir}/${fileName}`;
 
-          // Copy file to downloads
-          await ReactNativeBlobUtil.fs.cp(uri, path);
+          // Some URIs include the file:// prefix; strip it for fs.readFile
+          let sourcePath = uri as string;
+          if (sourcePath.startsWith('file://'))
+            sourcePath = sourcePath.replace('file://', '');
 
-          // Trigger media scanner to show in gallery
-          await ReactNativeBlobUtil.fs.scanFile([
-            {
-              path,
-              mime: 'image/png',
-            },
-          ]);
+          // Read the captured file as base64
+          const base64 = await ReactNativeBlobUtil.fs.readFile(
+            sourcePath,
+            'base64',
+          );
 
+          // Prefer saving images into a Pictures album so the Gallery picks them up
+          let targetPath = path; // default
+          let wroteToAlbum = false;
+
+          // Attempt to write to a Pictures album first (Gallery)
+          const albumDirCandidates = [
+            '/sdcard/Pictures/SimakMobile',
+            '/storage/emulated/0/Pictures/SimakMobile',
+            '/sdcard/DCIM/SimakMobile',
+          ];
+          for (const albumDir of albumDirCandidates) {
+            try {
+              const isDir = await ReactNativeBlobUtil.fs.isDir(albumDir);
+              if (!isDir) await ReactNativeBlobUtil.fs.mkdir(albumDir);
+
+              const albumPath = `${albumDir}/${fileName}`;
+              await ReactNativeBlobUtil.fs.writeFile(
+                albumPath,
+                base64,
+                'base64',
+              );
+
+              // Trigger media scanner
+              await ReactNativeBlobUtil.fs.scanFile([
+                { path: albumPath, mime: 'image/png' },
+              ]);
+
+              // Register with DownloadManager/MediaStore if available
+              try {
+                const addCfg: any = {
+                  title: fileName,
+                  description: 'Kartu Pelajar',
+                  mime: 'image/png',
+                  path: albumPath,
+                  showNotification: true,
+                  mediaScannable: true,
+                };
+              if (android && 'addCompleteDownload' in android) {
+                await(android as any).addCompleteDownload(addCfg);
+              } else if (
+                ReactNativeBlobUtil.android &&
+                ReactNativeBlobUtil.android.addCompleteDownload
+              ) {
+                await ReactNativeBlobUtil.android.addCompleteDownload(addCfg);
+              }
+              } catch (e) {
+                console.warn('addCompleteDownload failed for album path', e);
+              }
+
+              targetPath = albumPath;
+              wroteToAlbum = true;
+              break;
+            } catch (e) {
+              // try next candidate
+            }
+          }
+
+          // If album write failed, fall back to public Download directory
+          if (!wroteToAlbum) {
+            // Try public Downloads (/sdcard/Download or /storage/emulated/0/Android/Download as user requested)
+            const publicDownloadCandidates = [
+              '/sdcard/Download',
+              '/storage/emulated/0/Android/Download',
+              '/storage/emulated/0/Download',
+            ];
+            for (const publicDownloadDir of publicDownloadCandidates) {
+              try {
+                const isPublicDir = await ReactNativeBlobUtil.fs.isDir(
+                  publicDownloadDir,
+                );
+                if (!isPublicDir)
+                  await ReactNativeBlobUtil.fs.mkdir(publicDownloadDir);
+                const publicPath = `${publicDownloadDir}/${fileName}`;
+                await ReactNativeBlobUtil.fs.writeFile(
+                  publicPath,
+                  base64,
+                  'base64',
+                );
+                await ReactNativeBlobUtil.fs.scanFile([
+                  { path: publicPath, mime: 'image/png' },
+                ]);
+                targetPath = publicPath;
+                wroteToAlbum = true;
+                break;
+              } catch (ePub) {
+                // try next candidate
+              }
+            }
+          }
+
+          // Final fallback: app-specific DownloadDir
+          if (!wroteToAlbum) {
+            try {
+              const isDir = await ReactNativeBlobUtil.fs.isDir(downloadDir);
+              if (!isDir) await ReactNativeBlobUtil.fs.mkdir(downloadDir);
+              const appPath = `${downloadDir}/${fileName}`;
+              await ReactNativeBlobUtil.fs.writeFile(appPath, base64, 'base64');
+              await ReactNativeBlobUtil.fs.scanFile([
+                { path: appPath, mime: 'image/png' },
+              ]);
+              targetPath = appPath;
+            } catch (errInner: any) {
+              throw errInner;
+            }
+          }
+
+          console.log('Student card saved to:', targetPath);
           setAlertConfig({
             visible: true,
             title: 'Berhasil Disimpan!',
-            message: `Kartu pelajar berhasil disimpan di folder Download.\n(${fileName})`,
+            message: `Kartu pelajar berhasil disimpan.`,
             type: 'success',
             onClose: () =>
               setAlertConfig(prev => ({ ...prev, visible: false })),
           });
-        } catch (err) {
+        } catch (err: any) {
           console.error('Download Error:', err);
           setAlertConfig({
             visible: true,
             title: 'Gagal Menyimpan',
             message: `Error: ${
-              err.message || 'Gagal menyalin kartu ke folder Download.'
+              err?.message || 'Gagal menyalin kartu ke folder Download.'
             }`,
             type: 'error',
             onClose: () =>

@@ -531,98 +531,58 @@ const HomeScreen = ({ navigation }: any) => {
       });
       return;
     }
-
     setLoading(true);
     try {
       const token = await getToken();
-      const { dirs } = ReactNativeBlobUtil.fs;
       const fileName = `Biodata_${siswa.nama.replace(/\s+/g, '_')}.pdf`;
 
-      if (Platform.OS === 'android') {
-        const downloadDir = dirs.DownloadDir;
+      // FORCED PATH: Kita tembak langsung ke folder download publik
+      // Kita bersihkan path agar tidak masuk ke folder /Android/data/
+      const PUBLIC_DOWNLOAD_DIR = '/storage/emulated/0/Download';
+      const downloadPath = `${PUBLIC_DOWNLOAD_DIR}/${fileName}`;
 
-        try {
-          // Ensure download directory exists
-          const isDir = await ReactNativeBlobUtil.fs.isDir(downloadDir);
-          if (!isDir) {
-            await ReactNativeBlobUtil.fs.mkdir(downloadDir);
+      console.log('Targeting Public Path:', downloadPath);
+
+      await ReactNativeBlobUtil.config({
+        fileCache: true, // Simpan ke cache dulu
+        addAndroidDownloads: {
+          useDownloadManager: true, // Wajib agar muncul di notifikasi & sistem
+          notification: true,
+          path: downloadPath, // Menimpa default path ke lokasi publik
+          description: 'Mengunduh Biodata Siswa...',
+          mediaScannable: true,
+          title: fileName,
+          mime: 'application/pdf',
+        },
+      })
+        .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
+          Authorization: `Bearer ${token}`,
+        })
+        .then(async res => {
+          console.log('File Downloaded to:', res.path());
+
+          // PENTING: Kadang DownloadManager butuh dipicu manual agar file muncul di Galeri/Files
+          if (Platform.OS === 'android') {
+            ReactNativeBlobUtil.fs.scanFile([
+              { path: res.path(), mime: 'application/pdf' },
+            ]);
           }
 
-          const path = `${downloadDir}/${fileName}`;
-
-          await ReactNativeBlobUtil.config({
-            fileCache: true,
-            addAndroidDownloads: {
-              useDownloadManager: true,
-              notification: true,
-              path: path,
-              description: 'Mengunduh Biodata Siswa...',
-              mediaScannable: true,
-              title: fileName,
-              mime: 'application/pdf',
-            },
-          })
-            .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
-              Authorization: `Bearer ${token}`,
-            })
-            .then(res => {
-              // Trigger media scanner
-              ReactNativeBlobUtil.fs
-                .scanFile([
-                  {
-                    path: res.path(),
-                    mime: 'application/pdf',
-                  },
-                ])
-                .catch(err => console.log('Scan error:', err));
-
-              setModalStatus({
-                visible: true,
-                type: 'success',
-                title: 'Unduhan Berhasil!',
-                message: `File tersimpan di folder Download sebagai ${fileName}`,
-              });
-            });
-        } catch (error) {
-          console.error('Android download error:', error);
           setModalStatus({
             visible: true,
-            type: 'error',
-            title: 'Gagal Mengunduh',
-            message: `Error: ${error.message || 'Tidak dapat mengunduh file.'}`,
+            type: 'success',
+            title: 'Unduhan Berhasil!',
+            message: `File tersimpan di folder Download Utama`,
           });
-        }
-      } else {
-        // iOS handling
-        const path = `${dirs.DocumentDir}/${fileName}`;
-        await ReactNativeBlobUtil.config({
-          fileCache: true,
-        })
-          .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
-            Authorization: `Bearer ${token}`,
-          })
-          .then(res => {
-            ReactNativeBlobUtil.ios.previewDocument(res.path());
-            setModalStatus({
-              visible: true,
-              type: 'success',
-              title: 'Berhasil!',
-              message: 'File PDF telah dibuka',
-            });
-          });
-      }
+        });
     } catch (error) {
-      console.error('Download error:', error);
-      setModalStatus({
-        visible: true,
-        type: 'error',
-        title: 'Gagal Mengunduh',
-        message: 'Tidak dapat mengunduh file. Silakan coba lagi.',
-      });
+      console.error('Download Error:', error);
+      // Jika muncul "Permission Denied" saat menulis ke /storage/emulated/0/Download,
+      // itu artinya Android 11+ butuh penanganan khusus atau user harus klik 'Izinkan'
     } finally {
       setLoading(false);
     }
-  }, [siswa]);
+  }, [siswa]);  
 
   // Fungsi Logout yang baru (hanya memicu modal)
   const onLogoutPress = useCallback(() => {

@@ -781,16 +781,15 @@ class SiswaController extends Controller
         }
 
         // 2. Check: Hitung total pengajuan dalam 30 hari terakhir
-        $recentRequestsCount = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
-            ->where('created_at', '>=', Carbon::now()->subDays(30))
+   $totalRequestsCount = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
             ->count();
 
-        if ($recentRequestsCount >= 5) {
+      if ($totalRequestsCount >= 3) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Batas pengajuan perubahan data telah tercapai',
-                'detail' => 'Anda telah membuat 5 pengajuan dalam 30 hari terakhir. Coba lagi minggu depan.',
-                'requests_this_month' => $recentRequestsCount,
+                'detail' => 'Anda telah mencapai batas maksimal (3x) pengajuan perubahan data seumur hidup. Silakan hubungi admin sekolah jika ada perubahan mendesak.',
+                'total_requests' => $totalRequestsCount, // Mengganti 'requests_this_month'
                 'user' => $user->fresh()->load('siswa')
             ], 429); // 429 Too Many Requests
         }

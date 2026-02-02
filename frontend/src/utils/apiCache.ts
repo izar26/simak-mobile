@@ -1,7 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import EncryptedStorage from 'react-native-encrypted-storage';
-import axios from 'axios';
-import { MAIN_APP_URL } from '@env'; // Pastikan library dotenv sudah setup
+import api from '../services/api';
 
 export const fetchWithSmartCache = async (
   endpoint: string,
@@ -35,42 +33,18 @@ export const fetchWithSmartCache = async (
       return JSON.parse(cachedData);
     }
 
-    // --- BAGIAN KEAMANAN: AMBIL TOKEN ---
-    let token = '';
-    try {
-      // Prioritas 1: Ambil dari Brankas Aman (EncryptedStorage)
-      const session = await EncryptedStorage.getItem('user_session');
-      if (session) {
-        const parsedSession = JSON.parse(session);
-        token = parsedSession.token;
-      }
-    } catch (e) {
-      console.warn('[SmartCache] Gagal akses EncryptedStorage:', e);
-    }
-
-    // Prioritas 2: Fallback ke Gudang Lama (Jaga-jaga user belum login ulang setelah update)
-    if (!token) {
-      token = (await AsyncStorage.getItem('token')) || '';
-    }
-    // ------------------------------------
-
-    const headers: any = {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    };
-
-    // Kirim ETag ke server: "Hei server, data saya kodenya ini. Masih sama gak?"
+    // Use shared `api` instance so auth/interceptors stay consistent.
+    const headers: any = {};
     if (etag) {
       headers['If-None-Match'] = etag;
-      headers['X-ETag'] = etag; // Trik khusus untuk Shared Hosting
+      headers['X-ETag'] = etag;
     }
 
-    console.log(`[SmartCache] Fetching Server: ${endpoint}`);
+    console.log(`[SmartCache] Fetching Server via shared api: ${endpoint}`);
 
-    // Request ke Server
-    const response = await axios.get(`${MAIN_APP_URL}/api${endpoint}`, {
+    const response = await api.get(endpoint, {
       headers,
-      validateStatus: status => status >= 200 && status < 400, // Izinkan status 304 dianggap sukses
+      validateStatus: status => status >= 200 && status < 400, // allow 304
     });
 
     // KASUS 1: Data Tidak Berubah (Hemat Kuota)

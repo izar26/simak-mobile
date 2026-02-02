@@ -37,30 +37,53 @@ class Logger {
     };
   }
 
+  private safeStringify(obj: any): string {
+    try {
+      const seen = new WeakSet();
+      return JSON.stringify(
+        obj,
+        (_key, value) => {
+          if (value && typeof value === 'object') {
+            if (seen.has(value)) return '[Circular]';
+            seen.add(value);
+          }
+          return value;
+        },
+        2,
+      );
+    } catch {
+      try {
+        return String(obj);
+      } catch {
+        return '[Unserializable]';
+      }
+    }
+  }
+  
   private log(entry: LogEntry): void {
-    // Store log in memory
     this.logs.push(entry);
     if (this.logs.length > this.maxLogs) {
       this.logs.shift();
     }
 
-    // Only print in development
     if (!this.isDev) return;
 
     const prefix = `[${entry.level}] [${entry.context}] ${entry.message}`;
+    const payload =
+      entry.data === undefined ? '' : this.safeStringify(entry.data);
 
     switch (entry.level) {
       case LogLevel.DEBUG:
-        console.debug(prefix, entry.data || '');
+        console.debug(prefix, payload);
         break;
       case LogLevel.INFO:
-        console.log(prefix, entry.data || '');
+        console.log(prefix, payload);
         break;
       case LogLevel.WARN:
-        console.warn(prefix, entry.data || '');
+        console.warn(prefix, payload);
         break;
       case LogLevel.ERROR:
-        console.error(prefix, entry.data || '');
+        console.error(prefix, payload);
         break;
     }
   }
