@@ -359,47 +359,48 @@ const SelectField = ({
       </TouchableOpacity>
 
       <CustomBottomSheet ref={bottomSheetRef} title={`Pilih ${label}`}>
-        <BottomSheetFlatList
-          data={options}
-          keyExtractor={item => item}
-          initialNumToRender={15}
-          renderItem={({ item: option }) => (
-            <TouchableOpacity
-              onPress={() => {
-                onSelect(fieldKey, option);
-                handleCloseModal();
-              }}
-              className={`px-6 flex-row justify-between items-center border-b border-slate-100 ${
-                value === option ? 'bg-blue-50' : 'bg-white'
-              }`}
-              style={{ height: 56 }}
-            >
-              <Text
-                className={`text-base ${
-                  value === option
-                    ? 'text-blue-700 font-bold'
-                    : 'text-slate-700 font-medium'
-                }`}
-                numberOfLines={1}
-              >
-                {option}
-              </Text>
-              {value === option && <CheckCircle size={20} color="#2563eb" />}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <View className="py-10 items-center justify-center">
-              <Info size={40} color="#cbd5e1" />
-              <Text className="text-slate-400 mt-4 text-center font-medium">
-                {options.length === 0
-                  ? 'Data tidak tersedia.\nPastikan pilihan sebelumnya sudah diisi.'
-                  : 'Tidak ada pilihan.'}
-              </Text>
-            </View>
-          }
-          contentContainerStyle={{ paddingBottom: 40 }}
-        />
-      </CustomBottomSheet>
+  <BottomSheetFlatList
+    data={options}
+    keyExtractor={(item: any) => item}
+    initialNumToRender={15}
+    // Tambahkan tipe { item: any } di sini
+    renderItem={({ item: option }: { item: any }) => (
+      <TouchableOpacity
+        onPress={() => {
+          onSelect(fieldKey, option);
+          handleCloseModal();
+        }}
+        className={`px-6 flex-row justify-between items-center border-b border-slate-100 ${
+          value === option ? 'bg-blue-50' : 'bg-white'
+        }`}
+        style={{ height: 56 }}
+      >
+        <Text
+          className={`text-base ${
+            value === option
+              ? 'text-blue-700 font-bold'
+              : 'text-slate-700 font-medium'
+          }`}
+          numberOfLines={1}
+        >
+          {option}
+        </Text>
+        {value === option && <CheckCircle size={20} color="#2563eb" />}
+      </TouchableOpacity>
+    )}
+    ListEmptyComponent={
+      <View className="py-10 items-center justify-center">
+        <Info size={40} color="#cbd5e1" />
+        <Text className="text-slate-400 mt-4 text-center font-medium">
+          {options.length === 0
+            ? 'Data tidak tersedia.\nPastikan pilihan sebelumnya sudah diisi.'
+            : 'Tidak ada pilihan.'}
+        </Text>
+      </View>
+    }
+    contentContainerStyle={{ paddingBottom: 40 }}
+  />
+</CustomBottomSheet>
     </View>
   );
 };
