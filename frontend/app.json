@@ -1,4 +1,9 @@
 {
   "name": "SimakMobile",
-  "displayName": "SimakMobile"
+  "displayName": "SimakMobile",
+  "extra": {
+    "eas": {
+      "projectId": "f717a4e5-492b-40c5-ab8c-bd94ef0b1cdd"
+    }
+  }
 }
