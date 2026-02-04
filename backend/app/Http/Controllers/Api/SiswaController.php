@@ -31,9 +31,10 @@ class SiswaController extends Controller
         'tinggi_badan', 'berat_badan',
         'nama_ayah', 'nama_ibu', 'nama_wali',
         'pekerjaan_ayah_id_str', 'pekerjaan_ibu_id_str', 'pekerjaan_wali_id_str',
-        'anak_keberapa',
+        'tahun_lahir_ayah', 'tahun_lahir_ibu', 'tahun_lahir_wali',
         'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
-        'alamat_jalan', 'nik', 'nomor_telepon_rumah', 'no_hp_akun'
+        'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
+        'anak_keberapa', 'alamat_jalan', 'nomor_telepon_rumah', 'no_hp_akun'
     ];
 
     /**
@@ -48,14 +49,14 @@ class SiswaController extends Controller
         }
 
         // Load relasi SEBELUM generate ETag
-        $user->load('siswa.sekolah', 'siswa.berkas');
+        $user->load('siswa.sekolah', 'siswa.berkas', 'siswa.pengajuan_perubahan');
 
         $responseData = [
             'status' => 'success',
             'data' => $user,
         ];
 
-        return $this->sendResponseWithETag($responseData);
+        return response()->json($responseData);
     }
 
     /**
@@ -281,7 +282,6 @@ class SiswaController extends Controller
                                     $mergedJadwal[] = $lastItem;
                                 }
                             }
-
                             $formattedJadwal = collect($mergedJadwal)->map(function ($item) {
                                 $jamMulai = Carbon::parse($item->jam_mulai)->format('H:i');
                                 $jamSelesai = Carbon::parse($item->jam_selesai)->format('H:i');
@@ -724,8 +724,8 @@ class SiswaController extends Controller
     $ignoredColumns = ['id', 'peserta_didik_id', 'created_at', 'updated_at', 'berkas', '_token'];
 
     foreach ($input as $key => $value) {
-        if (in_array($ignoredColumns, $key)) continue; // Perbaikan: in_array($needle, $haystack)
-        if (!in_array($key, $tableColumns) && $key !== 'no_hp_akun') continue;
+        if (in_array($key, $ignoredColumns)) continue; // Perbaikan: in_array($needle, $haystack)
+        if (!in_array($key, $tableColumns) && !in_array($key, ['no_hp_akun', 'nik_ayah', 'nik_ibu', 'nik_wali', 'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str'])) continue;
 
         $newVal = ($value === '' || $value === 'null' || is_null($value)) ? '' : trim((string)$value);
 
@@ -761,56 +761,105 @@ class SiswaController extends Controller
         else $directChanges[$key] = $finalValue;
     }
 
-    if (!empty($directChanges)) DB::table('siswas')->where('id', $siswa->id)->update($directChanges);
-
-    if (!empty($pendingChanges)) {
-        // ===== LIMIT PENGAJUAN =====
-        // 1. Check: Apakah ada pengajuan yang masih PENDING (belum diverifikasi)?
-        $pendingCount = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
-            ->where('status', 'pending')
-            ->count();
-
-        if ($pendingCount > 0) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Anda masih memiliki pengajuan yang sedang diverifikasi',
-                'detail' => 'Tunggu sampai pengajuan sebelumnya selesai diverifikasi sebelum membuat pengajuan baru.',
-                'pending_count' => $pendingCount,
-                'user' => $user->fresh()->load('siswa')
-            ], 422); // 422 Unprocessable Entity
+    // --- MULAI TRANSAKSI ---
+    DB::beginTransaction();
+    try {
+        // 1. EKSEKUSI PERUBAHAN LANGSUNG (Data Bebas) - Selalu dijalankan
+        $directUpdated = false;
+        if (!empty($directChanges)) {
+            DB::table('siswas')->where('id', $siswa->id)->update($directChanges);
+            $directUpdated = true;
         }
 
-        // 2. Check: Hitung total pengajuan dalam 30 hari terakhir
-   $totalRequestsCount = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
-            ->count();
+        $pendingStatus = 'none'; // values: none, submitted, limit_reached, pending_exists
+        $limitInfo = [];
 
-      if ($totalRequestsCount >= 3) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Batas pengajuan perubahan data telah tercapai',
-                'detail' => 'Anda telah mencapai batas maksimal (3x) pengajuan perubahan data seumur hidup. Silakan hubungi admin sekolah jika ada perubahan mendesak.',
-                'total_requests' => $totalRequestsCount, // Mengganti 'requests_this_month'
-                'user' => $user->fresh()->load('siswa')
-            ], 429); // 429 Too Many Requests
+        // 2. PROSES DATA GEMBOK (Jika Ada)
+        if (!empty($pendingChanges)) {
+            // A. Cek apakah ada pengajuan PENDING yang belum diproses
+            $existingPending = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
+                ->where('status', 'pending')
+                ->lockForUpdate() // Lock untuk konsistensi
+                ->first();
+
+            if ($existingPending) {
+                // LOGIKA BARU: APPEND/MERGE ke pengajuan yang sudah ada
+                // Ini memungkinkan user menambah perubahan colom lain meski status masih pending
+                $currentData = $existingPending->data_perubahan; 
+                if (is_string($currentData)) $currentData = json_decode($currentData, true) ?? [];
+
+                // Gabungkan: Data baru menimpa data lama (atau menambah key baru)
+                $mergedData = array_merge($currentData, $pendingChanges);
+
+                $existingPending->update([
+                    'data_perubahan' => $mergedData,
+                    'updated_at' => Carbon::now() // Refresh timestamp
+                ]);
+
+                $pendingStatus = 'submitted'; // Status sukses submit (merged)
+
+                // Info limit tetap diambil untuk display
+                $quotaUsedTotal = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
+                    ->whereIn('status', ['disetujui', 'pending'])
+                    ->count();
+                $limitInfo = ['used' => $quotaUsedTotal, 'max' => 5];
+
+            } else {
+                // B. Kalau TIDAK ada pending, baru cek Limit Total
+                $quotaUsedTotal = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
+                    ->whereIn('status', ['disetujui', 'pending'])
+                    ->count();
+
+                $limitInfo = ['used' => $quotaUsedTotal, 'max' => 5];
+
+                if ($quotaUsedTotal >= 5) {
+                    $pendingStatus = 'limit_reached';
+                } else {
+                    // C. Lolos Semua Cek -> Buat Pengajuan Baru
+                    PengajuanPerubahanSiswa::create([
+                        'siswa_id' => $siswa->id,
+                        'data_perubahan' => $pendingChanges,
+                        'status' => 'pending',
+                        'keterangan' => 'Pengajuan dari aplikasi mobile'
+                    ]);
+                    $pendingStatus = 'submitted';
+                }
+            }
         }
 
-        // 3. Proses pengajuan jika lolos semua checks
-        PengajuanPerubahanSiswa::create([
-            'siswa_id' => $siswa->id,
-            'data_perubahan' => $pendingChanges,
-            'status' => 'pending',
-            'keterangan' => 'Pengajuan dari aplikasi mobile'
+        DB::commit();
+
+        // Tentukan HTTP Code & Message berdasarkan hasil
+        $message = 'Data berhasil diperbarui';
+        if ($directUpdated && $pendingStatus === 'limit_reached') {
+            $message = 'Data bebas tersimpan, namun pengajuan data terkunci gagal (Limit Habis)';
+        } elseif ($directUpdated && $pendingStatus === 'pending_exists') {
+            $message = 'Data bebas tersimpan, namun pengajuan data terkunci ditunda (Masih ada antrian)';
+        } elseif (!$directUpdated && $pendingStatus === 'limit_reached') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Batas pengajuan habis',
+                'detail' => 'Kuota perubahan data penting bulan ini telah habis.',
+                'limit_info' => $limitInfo
+            ], 429);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $message,
+            'direct_updated' => $directUpdated,
+            'pending_status' => $pendingStatus, // Penting untuk frontend
+            'limit_info' => $limitInfo,
+            'user' => $user->fresh()->load('siswa.pengajuan_perubahan')
         ]);
-    }
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Proses pembaruan selesai',
-        'direct_updated' => !empty($directChanges),
-        'pending_submitted' => !empty($pendingChanges),
-        'user' => $user->fresh()->load('siswa')
-    ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Gagal memproses update siswa: ' . $e->getMessage());
+        return response()->json(['message' => 'Terjadi kesalahan sistem.', 'error' => $e->getMessage()], 500);
+    }
 }
+
 
     public function cetakBiodata(Request $request)
     {
