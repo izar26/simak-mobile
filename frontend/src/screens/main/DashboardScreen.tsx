@@ -794,10 +794,10 @@ const DashboardSkeleton = () => (
         <Skeleton variant="circle" width={44} height={44} />
         <View>
           <Skeleton width={80} height={12} style={{ marginBottom: 6 }} />
-          <Skeleton width={140} height={20} />
+          <Skeleton width={160} height={24} />
         </View>
       </View>
-      <Skeleton variant="circle" width={44} height={44} borderRadius={16} />
+      <Skeleton width={44} height={44} borderRadius={16} />
     </View>
 
     <FlatList
@@ -807,7 +807,7 @@ const DashboardSkeleton = () => (
           <View className="px-6 mt-2 mb-8 relative">
             <Skeleton
               width="100%"
-              height={220}
+              height={215}
               borderRadius={32}
               style={{ backgroundColor: '#e2e8f0' }}
             />
@@ -836,7 +836,7 @@ const DashboardSkeleton = () => (
           <View className="px-6 mb-8">
             <Skeleton width={120} height={22} style={{ marginBottom: 16 }} />
             <View className="flex-row flex-wrap justify-between">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((_, i) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((_, i) => (
                 <View key={i} className="w-[22%] items-center gap-2 mb-4">
                   <Skeleton
                     width={54}
@@ -861,14 +861,14 @@ const DashboardSkeleton = () => (
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 24 }}
               renderItem={() => (
-                <View className="mr-4 w-[280px] h-[160px] justify-between">
+                <View className="mr-4 w-[280px] h-[150px] justify-between">
                   <Skeleton
                     width={280}
-                    height={160}
-                    borderRadius={24}
+                    height={150}
+                    borderRadius={26}
                     style={{ backgroundColor: '#f1f5f9' }}
                   />
-                  <View className="p-5 h-full justify-between">
+                  <View className="p-5 h-full justify-between absolute inset-0">
                     <View className="flex-row justify-between items-start">
                       <Skeleton width={80} height={28} borderRadius={20} />
                       <Skeleton width={50} height={24} borderRadius={12} />

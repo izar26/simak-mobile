@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -57,6 +57,13 @@ const StudentCardScreen = ({ navigation, route }: any) => {
   const sekolah = siswa?.sekolah;
   const viewShotRef = useRef<any>(null);
   const [loading, setLoading] = useState(false);
+  
+  // State untuk melacak loading gambar
+  const [imagesLoaded, setImagesLoaded] = useState({
+    background: false,
+    logo: false,
+    photo: false,
+  });
 
   // State untuk mengontrol Modal Notifikasi (Sama seperti di EditProfile)
   const [alertConfig, setAlertConfig] = useState({
@@ -76,6 +83,19 @@ const StudentCardScreen = ({ navigation, route }: any) => {
   const fotoUrl = getFullUrl(siswa?.foto);
   const logoUrl = getFullUrl(sekolah?.logo);
   const bgUrl = getFullUrl(sekolah?.background_kartu_siswa);
+
+  // Cek apakah semua gambar yang ada sudah selesai dimuat
+  const isAllImagesLoaded = useMemo(() => {
+    const needBg = !!bgUrl;
+    const needLogo = !!logoUrl;
+    const needPhoto = !!fotoUrl;
+
+    return (
+      (!needBg || imagesLoaded.background) &&
+      (!needLogo || imagesLoaded.logo) &&
+      (!needPhoto || imagesLoaded.photo)
+    );
+  }, [bgUrl, logoUrl, fotoUrl, imagesLoaded]);
 
   const handleDownload = async () => {
     // Request permission first
@@ -321,6 +341,7 @@ const StudentCardScreen = ({ navigation, route }: any) => {
               {bgUrl ? (
                 <Image
                   source={{ uri: bgUrl }}
+                  onLoad={() => setImagesLoaded(prev => ({ ...prev, background: true }))}
                   style={{
                     position: 'absolute',
                     width: '100%',
@@ -342,6 +363,7 @@ const StudentCardScreen = ({ navigation, route }: any) => {
                 {logoUrl ? (
                   <Image
                     source={{ uri: logoUrl }}
+                    onLoad={() => setImagesLoaded(prev => ({ ...prev, logo: true }))}
                     className="w-10 h-10 mr-3"
                     resizeMode="contain"
                   />
@@ -363,6 +385,7 @@ const StudentCardScreen = ({ navigation, route }: any) => {
                         ? { uri: fotoUrl }
                         : { uri: 'https://via.placeholder.com/150' }
                     }
+                    onLoad={() => setImagesLoaded(prev => ({ ...prev, photo: true }))}
                     style={{
                       width: 140,
                       height: 140,
@@ -399,13 +422,20 @@ const StudentCardScreen = ({ navigation, route }: any) => {
         {/* Action Button */}
         <TouchableOpacity
           onPress={handleDownload}
-          disabled={loading}
-          className="mt-10 bg-blue-600 px-8 py-4 rounded-2xl flex-row items-center shadow-lg shadow-blue-300 active:bg-blue-700"
+          disabled={loading || !isAllImagesLoaded}
+          className={`mt-10 px-8 py-4 rounded-2xl flex-row items-center shadow-lg active:opacity-80 ${
+            loading || !isAllImagesLoaded ? 'bg-gray-400 shadow-gray-200' : 'bg-blue-600 shadow-blue-300'
+          }`}
         >
           {loading ? (
             <View className="flex-row items-center">
               <ActivityIndicator color="white" className="mr-2" />
               <Text className="text-white font-bold text-lg">Menyimpan...</Text>
+            </View>
+          ) : !isAllImagesLoaded ? (
+            <View className="flex-row items-center">
+              <ActivityIndicator color="white" size="small" className="mr-3" />
+              <Text className="text-white font-bold text-lg">Memuat Gambar...</Text>
             </View>
           ) : (
             <>

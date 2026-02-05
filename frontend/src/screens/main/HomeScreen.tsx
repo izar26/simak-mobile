@@ -616,42 +616,52 @@ const HomeScreen = ({ navigation }: any) => {
         />
         <View className="bg-slate-200 pb-24 rounded-b-[40px]">
           <View className="items-center pt-12 px-6">
-            <Skeleton
-              variant="circle"
-              width={120}
-              height={120}
-              className="mb-4"
-            />
-            <Skeleton width={200} height={28} className="mb-2 rounded-lg" />
-            <Skeleton width={140} height={16} className="rounded-lg" />
+            <View className="bg-white p-1.5 rounded-full mb-6">
+              <Skeleton
+                variant="circle"
+                width={128}
+                height={128}
+              />
+            </View>
+            <Skeleton width={220} height={32} className="mb-3 rounded-lg" />
+            
+            {/* NISN Pill Skeleton */}
+            <Skeleton width={160} height={24} className="mb-4 rounded-full" />
+            
+            {/* Rombel Pill Skeleton */}
+            <Skeleton width={140} height={32} className="rounded-2xl" />
           </View>
         </View>
         <ScrollView
           className="px-5 -mt-12"
           showsVerticalScrollIndicator={false}
         >
-          {[1, 2, 3].map(i => (
-            <View key={i} className="bg-white rounded-2xl mb-4 p-5 shadow-sm">
-              <View className="flex-row items-center mb-4">
+          {[1, 2].map(i => (
+            <View key={i} className="bg-white rounded-[32px] mb-6 p-6 shadow-sm border border-slate-100">
+              <View className="flex-row items-center mb-6 pb-4 border-b border-slate-50">
                 <Skeleton
-                  width={48}
-                  height={48}
-                  borderRadius={12}
-                  className="mr-4"
+                  width={36}
+                  height={36}
+                  borderRadius={10}
+                  className="mr-3"
                 />
                 <Skeleton width={150} height={20} className="rounded-lg" />
               </View>
-              <View className="h-px bg-slate-100 mb-4" />
-              <View className="flex-row flex-wrap">
-                <Skeleton
-                  width="48%"
-                  height={60}
-                  className="mr-2 mb-2 rounded-xl"
-                />
-                <Skeleton width="48%" height={60} className="rounded-xl" />
-                <Skeleton width="48%" height={60} className="mr-2 rounded-xl" />
-                <Skeleton width="48%" height={60} className="rounded-xl" />
+              <View className="flex-row flex-wrap justify-between">
+                {[1, 2, 3, 4, 5, 6].map(j => (
+                  <View key={j} className="w-[48%] mb-4">
+                    <Skeleton width={60} height={12} className="mb-2 rounded" />
+                    <Skeleton width="100%" height={16} className="rounded" />
+                  </View>
+                ))}
               </View>
+              {i === 1 && (
+                <View className="mt-2 p-4 bg-slate-50 rounded-2xl">
+                  <Skeleton width="100%" height={20} className="mb-3 rounded" />
+                  <Skeleton width="100%" height={20} className="mb-3 rounded" />
+                  <Skeleton width="100%" height={20} className="rounded" />
+                </View>
+              )}
             </View>
           ))}
         </ScrollView>

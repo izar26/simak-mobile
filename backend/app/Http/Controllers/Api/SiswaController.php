@@ -802,7 +802,7 @@ class SiswaController extends Controller
                 $quotaUsedTotal = PengajuanPerubahanSiswa::where('siswa_id', $siswa->id)
                     ->whereIn('status', ['disetujui', 'pending'])
                     ->count();
-                $limitInfo = ['used' => $quotaUsedTotal, 'max' => 5];
+                $limitInfo = ['used' => $quotaUsedTotal, 'max' => 3];
 
             } else {
                 // B. Kalau TIDAK ada pending, baru cek Limit Total
@@ -810,9 +810,9 @@ class SiswaController extends Controller
                     ->whereIn('status', ['disetujui', 'pending'])
                     ->count();
 
-                $limitInfo = ['used' => $quotaUsedTotal, 'max' => 5];
+                $limitInfo = ['used' => $quotaUsedTotal, 'max' => 3];
 
-                if ($quotaUsedTotal >= 5) {
+                if ($quotaUsedTotal >= 3) {
                     $pendingStatus = 'limit_reached';
                 } else {
                     // C. Lolos Semua Cek -> Buat Pengajuan Baru
