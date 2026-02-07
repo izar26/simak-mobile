@@ -246,7 +246,7 @@ const TRANSPORT_OPTIONS = [
   'Lainnya',
 ];
 
-const BASE_URL = 'https://www.emsifa.com/api-wilayah-indonesia/api';
+const BASE_URL = 'https://ibnux.github.io/data-indonesia';
 
 const LABEL_MAP: Record<string, string> = {
   nama: 'Nama Lengkap',
@@ -1218,7 +1218,7 @@ const SelectField = memo(
 );
 
 // Optimized DateField
-const DateField = memo( 
+const DateField = memo(
   ({
     label,
     fieldKey,
@@ -1427,13 +1427,29 @@ const RegionPicker = memo(
       villages: [],
     });
 
-    // Fetch provinces on mount
+    // Helper to sort by name
+    const sortByName = (data: any[]) => {
+      return data.sort((a, b) => a.nama.localeCompare(b.nama));
+    };
+
+    // Helper to normalize region name for comparison
+    const normalizeRegionName = (name: string) => {
+      if (!name) return '';
+      return name
+        .replace(/^(KABUPATEN|KAB\.|KOTA)\s+/i, '')
+        .trim()
+        .toUpperCase();
+    };
+
+    // Fetch provinces on mount - IBNUX API
     useEffect(() => {
       let mounted = true;
-      fetch(`${BASE_URL}/provinces.json`)
+      fetch(`${BASE_URL}/propinsi.json`)
         .then(res => res.json())
         .then(
-          data => mounted && setRegions(prev => ({ ...prev, provinces: data })),
+          data =>
+            mounted &&
+            setRegions(prev => ({ ...prev, provinces: sortByName(data) })),
         )
         .catch(console.error);
       return () => {
@@ -1441,61 +1457,78 @@ const RegionPicker = memo(
       };
     }, []);
 
-    // Fetch regencies when province changes
+    // Fetch regencies when province changes or is already selected
     useEffect(() => {
       if (!formData.provinsi || regions.provinces.length === 0) return;
+      
       const province = regions.provinces.find(
-        (p: any) => p.name === formData.provinsi,
+        (p: any) => normalizeRegionName(p.nama) === normalizeRegionName(formData.provinsi),
       );
+
       if (!province) return;
 
+      // Only fetch if we don't have regencies or if the current regencies don't belong to this province
+      // (Simplified check: just fetch if we have a province ID)
       let mounted = true;
-      fetch(`${BASE_URL}/regencies/${province.id}.json`)
+      fetch(`${BASE_URL}/kabupaten/${province.id}.json`)
         .then(res => res.json())
-        .then(
-          data => mounted && setRegions(prev => ({ ...prev, regencies: data })),
-        )
+        .then(data => {
+          if (mounted) {
+            setRegions(prev => ({ ...prev, regencies: sortByName(data) }));
+          }
+        })
         .catch(console.error);
+
       return () => {
         mounted = false;
       };
     }, [formData.provinsi, regions.provinces]);
 
-    // Fetch districts when regency changes
+    // Fetch districts when regency changes or is already selected
     useEffect(() => {
       if (!formData.kabupaten_kota || regions.regencies.length === 0) return;
+      
       const regency = regions.regencies.find(
-        (r: any) => r.name === formData.kabupaten_kota,
+        (r: any) => normalizeRegionName(r.nama) === normalizeRegionName(formData.kabupaten_kota),
       );
+
       if (!regency) return;
 
       let mounted = true;
-      fetch(`${BASE_URL}/districts/${regency.id}.json`)
+      fetch(`${BASE_URL}/kecamatan/${regency.id}.json`)
         .then(res => res.json())
-        .then(
-          data => mounted && setRegions(prev => ({ ...prev, districts: data })),
-        )
+        .then(data => {
+          if (mounted) {
+            setRegions(prev => ({ ...prev, districts: sortByName(data) }));
+          }
+        })
         .catch(console.error);
+
       return () => {
         mounted = false;
       };
     }, [formData.kabupaten_kota, regions.regencies]);
 
-    // Fetch villages when district changes
+    // Fetch villages when district changes or is already selected
     useEffect(() => {
       if (!formData.kecamatan || regions.districts.length === 0) return;
+      
       const district = regions.districts.find(
-        (d: any) => d.name === formData.kecamatan,
+        (d: any) => normalizeRegionName(d.nama) === normalizeRegionName(formData.kecamatan),
       );
+
       if (!district) return;
 
       let mounted = true;
-      fetch(`${BASE_URL}/villages/${district.id}.json`)
+      fetch(`${BASE_URL}/kelurahan/${district.id}.json`)
         .then(res => res.json())
-        .then(
-          data => mounted && setRegions(prev => ({ ...prev, villages: data })),
-        )
+        .then(data => {
+          if (mounted) {
+            setRegions(prev => ({ ...prev, villages: sortByName(data) }));
+          }
+        })
         .catch(console.error);
+
       return () => {
         mounted = false;
       };
@@ -1508,15 +1541,15 @@ const RegionPicker = memo(
         onChange('kecamatan', '');
         onChange('desa_kelurahan', '');
 
-        const province = regions.provinces.find((p: any) => p.name === name);
+        const province = regions.provinces.find((p: any) => p.nama === name);
         if (province) {
           setLoading(true);
           try {
             const res = await fetch(
-              `${BASE_URL}/regencies/${province.id}.json`,
+              `${BASE_URL}/kabupaten/${province.id}.json`,
             );
             const data = await res.json();
-            setRegions(prev => ({ ...prev, regencies: data }));
+            setRegions(prev => ({ ...prev, regencies: sortByName(data) }));
           } finally {
             setLoading(false);
           }
@@ -1531,13 +1564,13 @@ const RegionPicker = memo(
         onChange('kecamatan', '');
         onChange('desa_kelurahan', '');
 
-        const regency = regions.regencies.find((r: any) => r.name === name);
+        const regency = regions.regencies.find((r: any) => r.nama === name);
         if (regency) {
           setLoading(true);
           try {
-            const res = await fetch(`${BASE_URL}/districts/${regency.id}.json`);
+            const res = await fetch(`${BASE_URL}/kecamatan/${regency.id}.json`);
             const data = await res.json();
-            setRegions(prev => ({ ...prev, districts: data }));
+            setRegions(prev => ({ ...prev, districts: sortByName(data) }));
           } finally {
             setLoading(false);
           }
@@ -1551,13 +1584,13 @@ const RegionPicker = memo(
         onChange('kecamatan', name);
         onChange('desa_kelurahan', '');
 
-        const district = regions.districts.find((d: any) => d.name === name);
+        const district = regions.districts.find((d: any) => d.nama === name);
         if (district) {
           setLoading(true);
           try {
-            const res = await fetch(`${BASE_URL}/villages/${district.id}.json`);
+            const res = await fetch(`${BASE_URL}/kelurahan/${district.id}.json`);
             const data = await res.json();
-            setRegions(prev => ({ ...prev, villages: data }));
+            setRegions(prev => ({ ...prev, villages: sortByName(data) }));
           } finally {
             setLoading(false);
           }
@@ -1584,7 +1617,7 @@ const RegionPicker = memo(
           fieldKey="provinsi"
           icon={MapPin}
           value={formData.provinsi}
-          options={regions.provinces.map((p: any) => p.name)}
+          options={regions.provinces.map((p: any) => p.nama)}
           onSelect={handleSelectProv}
           isPending={pendingFields.includes('provinsi')}
           onAlert={onShowAlert}
@@ -1594,7 +1627,7 @@ const RegionPicker = memo(
           fieldKey="kabupaten_kota"
           icon={MapPin}
           value={formData.kabupaten_kota}
-          options={regions.regencies.map((r: any) => r.name)}
+          options={regions.regencies.map((r: any) => r.nama)}
           onSelect={handleSelectReg}
           isPending={pendingFields.includes('kabupaten_kota')}
           disabled={!formData.provinsi}
@@ -1620,7 +1653,7 @@ const RegionPicker = memo(
           fieldKey="kecamatan"
           icon={MapPin}
           value={formData.kecamatan}
-          options={regions.districts.map((d: any) => d.name)}
+          options={regions.districts.map((d: any) => d.nama)}
           onSelect={handleSelectDist}
           isPending={pendingFields.includes('kecamatan')}
           disabled={!formData.kabupaten_kota}
@@ -1632,7 +1665,7 @@ const RegionPicker = memo(
           fieldKey="desa_kelurahan"
           icon={MapPin}
           value={formData.desa_kelurahan}
-          options={regions.villages.map((v: any) => v.name)}
+          options={regions.villages.map((v: any) => v.nama)}
           onSelect={(k: any, v: any) => onChange(k, v)}
           isPending={pendingFields.includes('desa_kelurahan')}
           disabled={!formData.kecamatan}
@@ -1782,6 +1815,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
     title: '',
     message: '',
     type: 'success',
+    children: null,
     onClose: () => {},
   });
   const [isReady, setIsReady] = useState(false);
@@ -1863,12 +1897,13 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
   }, []);
 
   const handleShowStatus = useCallback(
-    (title: string, message: string, type: any) => {
+    (title: string, message: string, type: any, children?: React.ReactNode) => {
       setAlertConfig({
         visible: true,
         title,
         message,
         type,
+        children,
         onClose: () =>
           setAlertConfig((prev: any) => ({ ...prev, visible: false })),
       });
@@ -2101,7 +2136,51 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
       }
 
       // ... rest of modal content logic (simplified for brevity)
-      handleShowStatus(modalTitle, modalMessage, modalType);
+      // ... rest of modal content logic (simplified for brevity)
+      handleShowStatus(
+        modalTitle, 
+        modalMessage, 
+        modalType,
+        <View style={{ marginTop: 12 }}>
+          {hasPending && pendingFieldsList.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#fffbeb', padding: 8, borderRadius: 8 }}>
+                <Lock size={14} color="#d97706" style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 12, color: '#b45309', fontWeight: '700' }}>
+                  MENUNGGU VERIFIKASI SEKEOLAH
+                </Text>
+              </View>
+              {pendingFieldsList.map((field) => (
+                <View key={field} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8 }}>
+                  <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#d97706', marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#4b5563', fontWeight: '500' }}>
+                    {formatLabel(field)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {hasSuccess && successFields.length > 0 && (
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f0fdf4', padding: 8, borderRadius: 8 }}>
+                <CheckCircle size={14} color="#15803d" style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 12, color: '#166534', fontWeight: '700' }}>
+                  BERHASIL DISIMPAN
+                </Text>
+              </View>
+              {successFields.map((field) => (
+                <View key={field} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8 }}>
+                  <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#15803d', marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#4b5563', fontWeight: '500' }}>
+                    {formatLabel(field)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      );
     } catch (error: any) {
       const status = error.response?.status || error.status;
       if (status === 429) {
@@ -3069,7 +3148,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                     isPending={pendingFields.includes('no_kip')}
                   />
                 )}
-                
+
                 <SegmentedField
                   label="Penerima KPS"
                   fieldKey="penerima_kps"
