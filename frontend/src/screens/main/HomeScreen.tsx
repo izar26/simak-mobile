@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import packageJson from '../../../package.json';
+
+
 import {
   View,
   Text,
@@ -97,6 +100,7 @@ interface UserData {
   nama?: string;
   username?: string;
   email?: string;
+  alamat?: string; // Tambahkan ini
   siswa?: SiswaData;
 }
 
@@ -203,8 +207,8 @@ const ConfirmModal = ({
             <TouchableOpacity
               onPress={onConfirm}
               className={`flex-1 py-3.5 rounded-2xl items-center justify-center active:opacity-80 ${isDestructive
-                  ? 'bg-red-500 shadow-lg shadow-red-200'
-                  : 'bg-blue-600 shadow-lg shadow-blue-200'
+                ? 'bg-red-500 shadow-lg shadow-red-200'
+                : 'bg-blue-600 shadow-lg shadow-blue-200'
                 }`}
             >
               <Text className="text-white font-bold text-sm">
@@ -985,7 +989,7 @@ const HomeScreen = ({ navigation }: any) => {
               </TouchableOpacity>
 
               <Text className="text-slate-400 text-center text-xs font-medium pb-4">
-                Simak Mobile v1.2.0 • {new Date().getFullYear()}
+                Simak Mobile v{packageJson.version} • {new Date().getFullYear()}
               </Text>
             </Animated.View>
           </View>

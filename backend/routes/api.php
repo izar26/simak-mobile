@@ -5,9 +5,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PublicController;
 use App\Http\Controllers\Api\SiswaController;
+use App\Http\Controllers\Api\AppVersionController;
 
 Route::get('/sekolah', [PublicController::class, 'getSekolah']);
 Route::get('/berita', [PublicController::class, 'getBerita']);
+Route::get('/app/version', [AppVersionController::class, 'checkVersion']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {

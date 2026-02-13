@@ -23,6 +23,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import LottieView from 'lottie-react-native';
 import './global.css';
 
+import { checkAppUpdate, downloadAndInstallApk } from './src/services/UpdateService';
 import api from './src/services/api';
 import LoginScreen from './src/screens/LoginScreen';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
@@ -53,9 +54,32 @@ function App() {
   const [isErrorVisible, setIsErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const LOGO_URL = `${
-    MAIN_APP_URL || 'https://simak.smakniscjr.sch.id'
-  }/storage/logos/q3kO53UObFOXLV7d2dmYZIz8IhPRUE2CEkNHuLc5.png`;
+  // Update State
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [updateData, setUpdateData] = useState<any>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  const LOGO_URL = `${MAIN_APP_URL || 'https://simak.smakniscjr.sch.id'
+    }/storage/logos/q3kO53UObFOXLV7d2dmYZIz8IhPRUE2CEkNHuLc5.png`;
+
+  const checkForUpdate = async () => {
+    const update = await checkAppUpdate();
+    if (update) {
+      setUpdateData(update);
+      setUpdateModalVisible(true);
+    }
+  };
+
+  const startUpdate = async () => {
+    if (!updateData) return;
+    setIsDownloading(true);
+    await downloadAndInstallApk(updateData.download_url, (progress) => {
+      setDownloadProgress(progress);
+    });
+    setIsDownloading(false);
+    setUpdateModalVisible(false); // Close modal after intent launched
+  };
 
   const initializeApp = useCallback(async () => {
     setStatus('checking');
@@ -99,6 +123,7 @@ function App() {
 
   useEffect(() => {
     initializeApp();
+    checkForUpdate(); // Cek update saat aplikasi dibuka
   }, [initializeApp]);
 
   // Global listener: when token/session expired on API layer,
@@ -106,7 +131,7 @@ function App() {
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('auth:expired', () => {
       // Clear cached user and force re-check
-      AsyncStorage.removeItem('user').catch(() => {});
+      AsyncStorage.removeItem('user').catch(() => { });
       initializeApp();
     });
     return () => sub.remove();
@@ -151,7 +176,7 @@ function App() {
           animationType="fade"
           transparent={true}
           visible={isErrorVisible}
-          onRequestClose={() => {}} // Prevent hardware back button closing it without action
+          onRequestClose={() => { }} // Prevent hardware back button closing it without action
         >
           <View className="flex-1 justify-center items-center bg-black/50 px-6">
             <View className="bg-white w-full max-w-sm rounded-3xl p-6 items-center shadow-2xl">
@@ -247,6 +272,73 @@ function App() {
             </Stack.Navigator>
           </BottomSheetModalProvider>
         </NavigationContainer>
+        {/* --- MODAL UPDATE APP --- */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={updateModalVisible}
+          onRequestClose={() => {
+            if (updateData && !updateData.force_update) setUpdateModalVisible(false);
+          }}
+        >
+          <View className="flex-1 bg-black/60 justify-center items-center px-6">
+            <View className="bg-white w-full rounded-3xl p-6 items-center shadow-2xl">
+              <View className="bg-blue-50 p-4 rounded-full mb-4">
+                <RefreshCw size={40} color="#2563eb" />
+              </View>
+              <Text className="text-slate-800 font-black text-xl mb-1 text-center">
+                Update Tersedia!
+              </Text>
+              <Text className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">
+                Versi {updateData?.latest_version}
+              </Text>
+
+              <View className="bg-slate-50 w-full p-4 rounded-xl mb-6 max-h-40">
+                <Text className="text-slate-500 text-xs font-bold mb-2 uppercase">
+                  Apa yang baru:
+                </Text>
+                <Text className="text-slate-700 text-sm leading-5">
+                  {updateData?.changelog || 'Perbaikan bug dan peningkatan performa.'}
+                </Text>
+              </View>
+
+              {isDownloading ? (
+                <View className="w-full mb-2">
+                  <View className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                    <View
+                      className="h-full bg-blue-600 rounded-full"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  </View>
+                  <Text className="text-center text-slate-500 text-xs font-bold">
+                    Mengunduh... {downloadProgress}%
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={startUpdate}
+                  className="bg-blue-600 w-full py-4 rounded-2xl items-center shadow-lg shadow-blue-200 active:scale-95 transition-transform"
+                >
+                  <Text className="text-white font-bold text-base">
+                    Update Sekarang
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Tombol Nanti (Jika tidak force update) */}
+              {updateData && !updateData.force_update && !isDownloading && (
+                <TouchableOpacity
+                  onPress={() => setUpdateModalVisible(false)}
+                  className="mt-4 py-2"
+                >
+                  <Text className="text-slate-400 font-bold text-sm">
+                    Nanti Saja
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
