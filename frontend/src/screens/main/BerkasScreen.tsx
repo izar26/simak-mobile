@@ -12,6 +12,7 @@ import {
   Linking,
   Platform,
   TouchableWithoutFeedback,
+  PermissionsAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -41,6 +42,36 @@ import { handleApiError, logError } from '../../utils/errorHandler';
 import { buildStorageUrl } from '../../utils/validation';
 import { BerkasItem } from '../../types';
 
+// ✅ PERMISSION HELPER
+const requestStoragePermission = async () => {
+  // Android 13+ (SDK 33+) tidak butuh permission manual untuk DownloadManager ke public folder
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    return true;
+  }
+
+  // Android 12 ke bawah butuh WRITE_EXTERNAL_STORAGE
+  if (Platform.OS === 'android') {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        {
+          title: 'Izin Akses Penyimpanan',
+          message:
+            'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan file unduhan.',
+          buttonNeutral: 'Tanya Nanti',
+          buttonNegative: 'Batal',
+          buttonPositive: 'Izinkan',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+  return true;
+};
+
 // --- KOMPONEN PREVIEW MODAL ---
 const PreviewModal = ({ visible, berkas, onClose, onShowStatus }: any) => {
   if (!visible || !berkas) return null;
@@ -63,6 +94,20 @@ const PreviewModal = ({ visible, berkas, onClose, onShowStatus }: any) => {
       });
       return;
     }
+
+    // Permission check
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      onShowStatus({
+        visible: true,
+        type: 'error',
+        title: 'Izin Ditolak',
+        message: 'Anda perlu memberikan izin akses penyimpanan.',
+      });
+      return;
+    }
+
+    // Proceed with download...
 
     const { dirs } = ReactNativeBlobUtil.fs;
     const fileName = berkas.judul || 'Dokumen';
@@ -418,11 +463,10 @@ const BerkasScreen = ({ navigation, route }: any) => {
           <TouchableOpacity
             onPress={handleInitialCheck}
             disabled={uploading}
-            className={`flex-row items-center justify-center p-4 rounded-xl border-2 border-dashed ${
-              uploading
-                ? 'bg-gray-100 border-gray-300'
-                : 'bg-blue-50 border-blue-200'
-            }`}
+            className={`flex-row items-center justify-center p-4 rounded-xl border-2 border-dashed ${uploading
+              ? 'bg-gray-100 border-gray-300'
+              : 'bg-blue-50 border-blue-200'
+              }`}
           >
             {uploading ? (
               <ActivityIndicator size="small" color="#2563eb" />
@@ -480,9 +524,8 @@ const BerkasScreen = ({ navigation, route }: any) => {
             >
               <View className="flex-row items-center flex-1 mr-2">
                 <View
-                  className={`p-3 rounded-xl mr-3 ${
-                    berkas.file_type === 'pdf' ? 'bg-red-50' : 'bg-blue-50'
-                  }`}
+                  className={`p-3 rounded-xl mr-3 ${berkas.file_type === 'pdf' ? 'bg-red-50' : 'bg-blue-50'
+                    }`}
                 >
                   {berkas.file_type === 'pdf' ? (
                     <FileText size={20} color="#ef4444" />

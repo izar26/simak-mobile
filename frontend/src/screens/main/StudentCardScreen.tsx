@@ -17,38 +17,40 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import { ChevronLeft, Download } from 'lucide-react-native';
 import { MAIN_APP_URL } from '@env';
 const android = ReactNativeBlobUtil.android;
-// Import komponen StatusModal (pastikan path-nya sesuai struktur project Anda)
 import StatusModal from '../../components/StatusModal';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
 const CARD_HEIGHT = CARD_WIDTH * 1.58; // Aspect ratio ~56mm / 88mm
 
-// Permission helper function
+// ✅ PERMISSION HELPER (Sama dengan HomeScreen & BerkasScreen)
 const requestStoragePermission = async () => {
+  // Android 13+ (SDK 33+) tidak butuh permission manual untuk DownloadManager ke public folder
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    return true;
+  }
+
+  // Android 12 ke bawah butuh WRITE_EXTERNAL_STORAGE
   if (Platform.OS === 'android') {
     try {
-      const permission =
-        Platform.Version >= 33
-          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
-          : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
-
-      const granted = await PermissionsAndroid.request(permission, {
-        title: 'Izin Akses Penyimpanan',
-        message:
-          'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan kartu pelajar.',
-        buttonNeutral: 'Tanya Nanti',
-        buttonNegative: 'Batal',
-        buttonPositive: 'Izinkan',
-      });
-
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        {
+          title: 'Izin Akses Penyimpanan',
+          message:
+            'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan kartu pelajar.',
+          buttonNeutral: 'Tanya Nanti',
+          buttonNegative: 'Batal',
+          buttonPositive: 'Izinkan',
+        },
+      );
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
       console.warn(err);
       return false;
     }
   }
-  return true; // iOS doesn't need explicit permission request
+  return true;
 };
 
 const StudentCardScreen = ({ navigation, route }: any) => {
@@ -57,7 +59,7 @@ const StudentCardScreen = ({ navigation, route }: any) => {
   const sekolah = siswa?.sekolah;
   const viewShotRef = useRef<any>(null);
   const [loading, setLoading] = useState(false);
-  
+
   // State untuk melacak loading gambar
   const [imagesLoaded, setImagesLoaded] = useState({
     background: false,
@@ -65,13 +67,13 @@ const StudentCardScreen = ({ navigation, route }: any) => {
     photo: false,
   });
 
-  // State untuk mengontrol Modal Notifikasi (Sama seperti di EditProfile)
+  // State untuk mengontrol Modal Notifikasi
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: '',
     message: '',
     type: 'success', // 'success' | 'error' | 'warning'
-    onClose: () => {},
+    onClose: () => { },
   });
 
   const getFullUrl = (path: string) => {
@@ -118,175 +120,67 @@ const StudentCardScreen = ({ navigation, route }: any) => {
 
       const fileName = `Kartu_Pelajar_${siswa.nisn || 'Siswa'}.png`;
       const { dirs } = ReactNativeBlobUtil.fs;
-      const downloadDir = dirs.DownloadDir;
 
+      // Target utama: Folder Download Publik
+      const downloadPath = `${dirs.DownloadDir}/${fileName}`;
+
+      // Bersihkan prefix file:// jika ada
+      let sourcePath = uri as string;
+      if (sourcePath.startsWith('file://')) {
+        sourcePath = sourcePath.replace('file://', '');
+      }
+
+      // Read captured image as base64
+      const base64 = await ReactNativeBlobUtil.fs.readFile(sourcePath, 'base64');
+
+      // Tulis ke folder Download
+      await ReactNativeBlobUtil.fs.writeFile(downloadPath, base64, 'base64');
+
+      // Scan file agar muncul di Gallery/Recent Images
+      try {
+        await ReactNativeBlobUtil.fs.scanFile([{ path: downloadPath, mime: 'image/png' }]);
+      } catch (scanErr) {
+        console.warn('Media Scan Error:', scanErr);
+      }
+
+      // Opsional: Coba daftarkan ke DownloadManager agar muncul notifikasi sistem (Android only)
       if (Platform.OS === 'android') {
         try {
-          // Ensure download directory exists
-          const isDir = await ReactNativeBlobUtil.fs.isDir(downloadDir);
-          if (!isDir) {
-            await ReactNativeBlobUtil.fs.mkdir(downloadDir);
+          const addCfg = {
+            title: fileName,
+            description: 'Kartu Pelajar Disimpan',
+            mime: 'image/png',
+            path: downloadPath,
+            showNotification: true,
+          };
+          if (android && 'addCompleteDownload' in android) {
+            await (android as any).addCompleteDownload(addCfg);
           }
-
-          const path = `${downloadDir}/${fileName}`;
-
-          // Some URIs include the file:// prefix; strip it for fs.readFile
-          let sourcePath = uri as string;
-          if (sourcePath.startsWith('file://'))
-            sourcePath = sourcePath.replace('file://', '');
-
-          // Read the captured file as base64
-          const base64 = await ReactNativeBlobUtil.fs.readFile(
-            sourcePath,
-            'base64',
-          );
-
-          // Prefer saving images into a Pictures album so the Gallery picks them up
-          let targetPath = path; // default
-          let wroteToAlbum = false;
-
-          // Attempt to write to a Pictures album first (Gallery)
-          const albumDirCandidates = [
-            '/sdcard/Pictures/SimakMobile',
-            '/storage/emulated/0/Pictures/SimakMobile',
-            '/sdcard/DCIM/SimakMobile',
-          ];
-          for (const albumDir of albumDirCandidates) {
-            try {
-              const isDir = await ReactNativeBlobUtil.fs.isDir(albumDir);
-              if (!isDir) await ReactNativeBlobUtil.fs.mkdir(albumDir);
-
-              const albumPath = `${albumDir}/${fileName}`;
-              await ReactNativeBlobUtil.fs.writeFile(
-                albumPath,
-                base64,
-                'base64',
-              );
-
-              // Trigger media scanner
-              await ReactNativeBlobUtil.fs.scanFile([
-                { path: albumPath, mime: 'image/png' },
-              ]);
-
-              // Register with DownloadManager/MediaStore if available
-              try {
-                const addCfg: any = {
-                  title: fileName,
-                  description: 'Kartu Pelajar',
-                  mime: 'image/png',
-                  path: albumPath,
-                  showNotification: true,
-                  mediaScannable: true,
-                };
-              if (android && 'addCompleteDownload' in android) {
-                await(android as any).addCompleteDownload(addCfg);
-              } else if (
-                ReactNativeBlobUtil.android &&
-                ReactNativeBlobUtil.android.addCompleteDownload
-              ) {
-                await ReactNativeBlobUtil.android.addCompleteDownload(addCfg);
-              }
-              } catch (e) {
-                console.warn('addCompleteDownload failed for album path', e);
-              }
-
-              targetPath = albumPath;
-              wroteToAlbum = true;
-              break;
-            } catch (e) {
-              // try next candidate
-            }
-          }
-
-          // If album write failed, fall back to public Download directory
-          if (!wroteToAlbum) {
-            // Try public Downloads (/sdcard/Download or /storage/emulated/0/Android/Download as user requested)
-            const publicDownloadCandidates = [
-              '/sdcard/Download',
-              '/storage/emulated/0/Android/Download',
-              '/storage/emulated/0/Download',
-            ];
-            for (const publicDownloadDir of publicDownloadCandidates) {
-              try {
-                const isPublicDir = await ReactNativeBlobUtil.fs.isDir(
-                  publicDownloadDir,
-                );
-                if (!isPublicDir)
-                  await ReactNativeBlobUtil.fs.mkdir(publicDownloadDir);
-                const publicPath = `${publicDownloadDir}/${fileName}`;
-                await ReactNativeBlobUtil.fs.writeFile(
-                  publicPath,
-                  base64,
-                  'base64',
-                );
-                await ReactNativeBlobUtil.fs.scanFile([
-                  { path: publicPath, mime: 'image/png' },
-                ]);
-                targetPath = publicPath;
-                wroteToAlbum = true;
-                break;
-              } catch (ePub) {
-                // try next candidate
-              }
-            }
-          }
-
-          // Final fallback: app-specific DownloadDir
-          if (!wroteToAlbum) {
-            try {
-              const isDir = await ReactNativeBlobUtil.fs.isDir(downloadDir);
-              if (!isDir) await ReactNativeBlobUtil.fs.mkdir(downloadDir);
-              const appPath = `${downloadDir}/${fileName}`;
-              await ReactNativeBlobUtil.fs.writeFile(appPath, base64, 'base64');
-              await ReactNativeBlobUtil.fs.scanFile([
-                { path: appPath, mime: 'image/png' },
-              ]);
-              targetPath = appPath;
-            } catch (errInner: any) {
-              throw errInner;
-            }
-          }
-
-          console.log('Student card saved to:', targetPath);
-          setAlertConfig({
-            visible: true,
-            title: 'Berhasil Disimpan!',
-            message: `Kartu pelajar berhasil disimpan.`,
-            type: 'success',
-            onClose: () =>
-              setAlertConfig(prev => ({ ...prev, visible: false })),
-          });
-        } catch (err: any) {
-          console.error('Download Error:', err);
-          setAlertConfig({
-            visible: true,
-            title: 'Gagal Menyimpan',
-            message: `Error: ${
-              err?.message || 'Gagal menyalin kartu ke folder Download.'
-            }`,
-            type: 'error',
-            onClose: () =>
-              setAlertConfig(prev => ({ ...prev, visible: false })),
-          });
+        } catch (dmErr) {
+          console.warn('DownloadManager Error:', dmErr);
         }
-      } else {
-        // iOS handling
-        setAlertConfig({
-          visible: true,
-          title: 'Info',
-          message: 'Fitur download otomatis iOS sedang dalam pengembangan.',
-          type: 'warning',
-          onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
-        });
       }
-    } catch (error) {
-      console.error(error);
+
+      console.log('Student card saved to:', downloadPath);
       setAlertConfig({
         visible: true,
-        title: 'Terjadi Kesalahan',
-        message: 'Gagal memproses gambar kartu pelajar.',
+        title: 'Berhasil Disimpan!',
+        message: `Kartu pelajar tersimpan di folder Download.`,
+        type: 'success',
+        onClose: () =>
+          setAlertConfig(prev => ({ ...prev, visible: false })),
+      });
+
+    } catch (error: any) {
+      console.error('Download Error:', error);
+      setAlertConfig({
+        visible: true,
+        title: 'Gagal Menyimpan',
+        message: `Error: ${error?.message || 'Gagal menyalin kartu ke folder Download.'
+          }`,
         type: 'error',
-        onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
+        onClose: () =>
+          setAlertConfig(prev => ({ ...prev, visible: false })),
       });
     } finally {
       setLoading(false);
@@ -423,9 +317,8 @@ const StudentCardScreen = ({ navigation, route }: any) => {
         <TouchableOpacity
           onPress={handleDownload}
           disabled={loading || !isAllImagesLoaded}
-          className={`mt-10 px-8 py-4 rounded-2xl flex-row items-center shadow-lg active:opacity-80 ${
-            loading || !isAllImagesLoaded ? 'bg-gray-400 shadow-gray-200' : 'bg-blue-600 shadow-blue-300'
-          }`}
+          className={`mt-10 px-8 py-4 rounded-2xl flex-row items-center shadow-lg active:opacity-80 ${loading || !isAllImagesLoaded ? 'bg-gray-400 shadow-gray-200' : 'bg-blue-600 shadow-blue-300'
+            }`}
         >
           {loading ? (
             <View className="flex-row items-center">

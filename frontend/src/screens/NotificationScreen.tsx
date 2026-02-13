@@ -22,7 +22,7 @@ import {
   AlertTriangle,
 } from 'lucide-react-native';
 import api from '../services/api';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieView from 'lottie-react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -186,9 +186,8 @@ const NotificationScreen = ({ navigation }: any) => {
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => handleOpenDetail(item)}
-            className={`mb-4 bg-white rounded-2xl shadow-sm border overflow-hidden flex-row ${
-              isNew ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100'
-            }`}
+            className={`mb-4 bg-white rounded-2xl shadow-sm border overflow-hidden flex-row ${isNew ? 'border-blue-200 bg-blue-50/30' : 'border-slate-100'
+              }`}
           >
             <View
               className={`w-1.5 h-full ${theme.bg}`}
@@ -306,17 +305,22 @@ const NotificationScreen = ({ navigation }: any) => {
         />
       )}
 
-      {/* --- MODAL DETAIL --- */}
+      {/* --- MODAL DETAIL PREMIUM --- */}
       <Modal
         animationType="fade"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
+        statusBarTranslucent
       >
-        <View className="flex-1 bg-black/50 justify-center items-center px-4">
-          <View className="bg-white w-full rounded-3xl overflow-hidden max-h-[85%] shadow-2xl">
-            {selectedItem &&
-              (() => {
+        <View className="flex-1 bg-slate-900/60 justify-center items-center px-4">
+          {/* Animated Container */}
+          {selectedItem && (
+            <Animated.View
+              entering={ZoomIn.duration(300).springify().damping(12)}
+              className="bg-white w-full max-h-[85%] rounded-[32px] overflow-hidden shadow-2xl"
+            >
+              {(() => {
                 const theme = getTheme(selectedItem.type);
                 const Icon = theme.icon;
 
@@ -328,160 +332,153 @@ const NotificationScreen = ({ navigation }: any) => {
                       typeof selectedItem.data_perubahan === 'string'
                         ? JSON.parse(selectedItem.data_perubahan)
                         : selectedItem.data_perubahan;
-                  } catch (e) {}
+                  } catch (e) { }
                 }
 
-                // Tentukan Judul List berdasarkan Status
-                let listTitle = 'Rincian Data:';
-                let listColor = 'text-slate-800';
+                // Tentukan Judul List & Warna
+                let listTitle = 'Rincian Data Pengajuan';
+                let listDesc = 'Berikut data yang Anda ajukan untuk diubah:';
+
                 if (selectedItem.type === 'error') {
-                  listTitle = 'Kolom yang Ditolak:'; // JUDUL KHUSUS DITOLAK
-                  listColor = 'text-red-600';
+                  listTitle = 'Kolom Ditolak';
+                  listDesc = 'Data berikut belum disetujui oleh sekolah:';
                 } else if (selectedItem.type === 'success') {
-                  listTitle = 'Data yang Disetujui:';
-                  listColor = 'text-emerald-600';
+                  listTitle = 'Data Disetujui';
+                  listDesc = 'Perubahan data berikut telah berhasil diterapkan:';
                 }
 
                 return (
                   <>
+                    {/* Header Premium */}
                     <LinearGradient
                       colors={theme.gradient}
-                      className="p-6 items-center border-b border-slate-100"
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      className="pt-8 pb-10 px-6 items-center relative overflow-hidden"
                     >
+                      {/* Decorative Circles */}
+                      <View className="absolute -top-10 -left-10 w-40 h-40 bg-white/20 rounded-full blur-2xl" />
+                      <View className="absolute top-10 -right-10 w-32 h-32 bg-white/30 rounded-full blur-xl" />
+
                       <View
-                        className={`p-4 rounded-full bg-white mb-3 shadow-sm ${theme.border} border`}
+                        className={`w-20 h-20 rounded-3xl bg-white shadow-lg shadow-slate-200/50 items-center justify-center mb-5 rotate-3 border-4 border-white/50`}
                       >
-                        <Icon size={40} color={theme.color} />
+                        <Icon size={40} color={theme.color} strokeWidth={2.5} />
                       </View>
-                      <Text
-                        className={`text-lg font-black text-center ${theme.text} mb-1`}
-                      >
+
+                      <Text className={`text-xl font-black text-center ${theme.text} mb-1 tracking-tight`}>
                         {selectedItem.title}
                       </Text>
-                      <Text className="text-slate-400 text-xs font-medium">
+                      <Text className="text-slate-500 text-xs font-bold uppercase tracking-widest bg-white/60 px-3 py-1 rounded-full overflow-hidden">
                         {selectedItem.date}
                       </Text>
                     </LinearGradient>
 
+                    {/* Content Scroll */}
                     <ScrollView
-                      className="p-6"
+                      className="flex-1 -mt-6 rounded-t-[32px] bg-white pt-8 px-6"
                       showsVerticalScrollIndicator={false}
+                      contentContainerStyle={{ paddingBottom: 40 }}
                     >
-                      <Text className="text-slate-700 text-center text-sm leading-6 mb-6">
+                      <Text className="text-slate-600 text-center text-sm leading-6 mb-8 font-medium">
                         {selectedItem.message}
                       </Text>
 
-                      {/* Catatan Operator */}
+                      {/* Catatan Operator Premium */}
                       {selectedItem.catatan && (
-                        <View className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
-                          <View className="flex-row items-center mb-2">
-                            <Info size={14} color="#64748b" />
-                            <Text className="text-slate-500 text-xs font-bold ml-2 uppercase">
-                              Catatan Operator
+                        <View className="bg-slate-50 p-5 rounded-2xl border border-dashed border-slate-300 mb-8 relative">
+                          <View className="absolute -top-3 left-4 bg-slate-800 px-3 py-1 rounded-full">
+                            <Text className="text-white text-[10px] font-bold uppercase tracking-wider">
+                              Catatan Verifikator
                             </Text>
                           </View>
-                          <Text className="text-slate-800 text-sm italic font-medium">
+                          <Text className="text-slate-700 text-sm font-medium italic mt-2 leading-relaxed">
                             "{selectedItem.catatan}"
                           </Text>
                         </View>
                       )}
 
-                      {/* Rincian Data (Dinamis sesuai Status) */}
-                      {dataPerubahan &&
-                      Object.keys(dataPerubahan).length > 0 ? (
-                        <View className="mb-6">
-                          <View className="flex-row items-center mb-3">
-                            {selectedItem.type === 'error' && (
-                              <AlertTriangle
-                                size={16}
-                                color="#dc2626"
-                                style={{ marginRight: 6 }}
-                              />
-                            )}
-                            <Text className={`${listColor} font-bold text-sm`}>
-                              {listTitle}
-                            </Text>
+                      {/* Rincian Data Modern List */}
+                      {dataPerubahan && Object.keys(dataPerubahan).length > 0 ? (
+                        <View>
+                          <View className="flex-row items-center mb-4">
+                            <View className={`w-1 h-5 rounded-full mr-3 ${theme.bg}`} style={{ backgroundColor: theme.color }} />
+                            <View>
+                              <Text className="text-slate-800 font-bold text-base">
+                                {listTitle}
+                              </Text>
+                              <Text className="text-slate-400 text-[11px] font-medium">
+                                {listDesc}
+                              </Text>
+                            </View>
                           </View>
 
-                          <View
-                            className={`bg-white border rounded-xl overflow-hidden ${
-                              selectedItem.type === 'error'
-                                ? 'border-red-100'
-                                : 'border-slate-100'
-                            }`}
-                          >
+                          <View className="space-y-3">
                             {Object.keys(dataPerubahan).map((key, i) => (
                               <View
                                 key={key}
-                                className={`flex-row p-3 ${
-                                  i !== Object.keys(dataPerubahan).length - 1
-                                    ? 'border-b border-slate-50'
-                                    : ''
-                                } ${
-                                  selectedItem.type === 'error'
-                                    ? 'bg-red-50/30'
-                                    : ''
-                                }`}
+                                className="flex-row items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm shadow-slate-100"
                               >
-                                <View
-                                  className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
-                                    selectedItem.type === 'error'
-                                      ? 'bg-red-100'
-                                      : 'bg-blue-50'
-                                  }`}
-                                >
+                                <View className={`w-10 h-10 rounded-xl items-center justify-center mr-4 ${selectedItem.type === 'error' ? 'bg-red-50' : 'bg-blue-50'
+                                  }`}>
                                   <FileText
-                                    size={14}
-                                    color={
-                                      selectedItem.type === 'error'
-                                        ? '#ef4444'
-                                        : '#3b82f6'
-                                    }
+                                    size={18}
+                                    color={selectedItem.type === 'error' ? '#ef4444' : '#3b82f6'}
+                                    strokeWidth={2}
                                   />
                                 </View>
                                 <View className="flex-1">
-                                  <Text className="text-slate-400 text-[10px] font-bold uppercase mb-0.5">
+                                  <Text className="text-slate-400 text-[10px] font-bold uppercase mb-1 tracking-wider">
                                     {formatLabel(key)}
                                   </Text>
-                                  <Text
-                                    className={`text-sm font-semibold ${
-                                      selectedItem.type === 'error'
-                                        ? 'text-red-800 decoration-slate-400'
-                                        : 'text-slate-800'
-                                    }`}
-                                  >
+                                  <Text className={`text-sm font-bold ${selectedItem.type === 'error' ? 'text-slate-400 line-through' : 'text-slate-800'
+                                    }`}>
                                     {dataPerubahan[key] || '-'}
                                   </Text>
                                 </View>
+                                {selectedItem.type === 'success' && (
+                                  <View className="bg-emerald-50 p-1.5 rounded-full">
+                                    <CheckCircle size={14} color="#10b981" />
+                                  </View>
+                                )}
+                                {selectedItem.type === 'error' && (
+                                  <View className="bg-red-50 p-1.5 rounded-full">
+                                    <XCircle size={14} color="#ef4444" />
+                                  </View>
+                                )}
                               </View>
                             ))}
                           </View>
                         </View>
                       ) : (
-                        // Jika tidak ada data perubahan tapi ditolak (Jaga-jaga)
                         selectedItem.type === 'error' && (
-                          <Text className="text-center text-slate-400 text-xs italic">
-                            Tidak ada rincian data spesifik.
-                          </Text>
+                          <View className="py-8 items-center opacity-50">
+                            <FileText size={40} color="#cbd5e1" />
+                            <Text className="text-center text-slate-400 text-xs font-bold mt-2 uppercase">
+                              Data Tidak Tersedia
+                            </Text>
+                          </View>
                         )
                       )}
                     </ScrollView>
 
-                    <View className="p-4 border-t border-slate-50 bg-white">
+                    {/* Footer Action */}
+                    <View className="p-6 pt-2 pb-8 bg-white border-t border-slate-50">
                       <TouchableOpacity
                         onPress={() => setModalVisible(false)}
-                        className="bg-slate-100 h-12 rounded-xl items-center justify-center flex-row active:bg-slate-200"
+                        className="bg-slate-900 h-14 rounded-2xl items-center justify-center shadow-lg shadow-slate-200 active:scale-95 transition-transform"
+                        activeOpacity={0.9}
                       >
-                        <X size={18} color="#475569" />
-                        <Text className="text-slate-600 font-bold ml-2">
-                          Tutup
+                        <Text className="text-white font-bold text-base tracking-wide">
+                          Tutup Detail
                         </Text>
                       </TouchableOpacity>
                     </View>
                   </>
                 );
               })()}
-          </View>
+            </Animated.View>
+          )}
         </View>
       </Modal>
     </SafeAreaView>

@@ -173,9 +173,8 @@ const ConfirmModal = ({
           className="bg-white w-full rounded-3xl p-6 shadow-2xl items-center"
         >
           <View
-            className={`w-16 h-16 rounded-full items-center justify-center mb-4 ${
-              isDestructive ? 'bg-red-50' : 'bg-blue-50'
-            }`}
+            className={`w-16 h-16 rounded-full items-center justify-center mb-4 ${isDestructive ? 'bg-red-50' : 'bg-blue-50'
+              }`}
           >
             {isDestructive ? (
               <LogOut size={32} color="#ef4444" />
@@ -203,11 +202,10 @@ const ConfirmModal = ({
 
             <TouchableOpacity
               onPress={onConfirm}
-              className={`flex-1 py-3.5 rounded-2xl items-center justify-center active:opacity-80 ${
-                isDestructive
+              className={`flex-1 py-3.5 rounded-2xl items-center justify-center active:opacity-80 ${isDestructive
                   ? 'bg-red-500 shadow-lg shadow-red-200'
                   : 'bg-blue-600 shadow-lg shadow-blue-200'
-              }`}
+                }`}
             >
               <Text className="text-white font-bold text-sm">
                 {confirmText}
@@ -222,12 +220,14 @@ const ConfirmModal = ({
 
 // ✅ PERMISSION HELPER
 const requestStoragePermission = async () => {
+  // Android 13+ (SDK 33+) tidak butuh permission manual untuk DownloadManager ke public folder
+  if (Platform.OS === 'android' && Platform.Version >= 33) {
+    return true;
+  }
+
   if (Platform.OS === 'android') {
     try {
-      const permission =
-        Platform.Version >= 33
-          ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
-          : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
+      const permission = PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
 
       const granted = await PermissionsAndroid.request(permission, {
         title: 'Izin Akses Penyimpanan',
@@ -306,9 +306,8 @@ const ParentCard = memo(
         style={{ backgroundColor: isFemale ? '#ffe4e6' : '#dbeafe' }}
       >
         <Text
-          className={`text-xl font-bold ${
-            isFemale ? 'text-rose-600' : 'text-blue-600'
-          }`}
+          className={`text-xl font-bold ${isFemale ? 'text-rose-600' : 'text-blue-600'
+            }`}
         >
           {title[0]}
         </Text>
@@ -322,9 +321,8 @@ const ParentCard = memo(
             <View className="flex-row items-center bg-white px-2 py-0.5 rounded-full shadow-sm">
               <Phone size={10} color={theme.accent} />
               <Text
-                className={`text-[10px] font-bold ml-1 ${
-                  isFemale ? 'text-rose-600' : 'text-blue-600'
-                }`}
+                className={`text-[10px] font-bold ml-1 ${isFemale ? 'text-rose-600' : 'text-blue-600'
+                  }`}
               >
                 {phone}
               </Text>
@@ -462,10 +460,10 @@ const HomeScreen = ({ navigation }: any) => {
 
   const fullAddress = useMemo(() => {
     if (!siswa && !user?.alamat) return 'Alamat belum diisi';
-    
+
     // Fallback alamat jalan: Siswa -> User
     const jalan = siswa?.alamat || user?.alamat;
-    
+
     const parts = [
       jalan,
       siswa?.rt || siswa?.rw ? `RT ${siswa?.rt || '-'} / RW ${siswa?.rw || '-'}` : null,
@@ -474,7 +472,7 @@ const HomeScreen = ({ navigation }: any) => {
       siswa?.kabupaten_kota,
       siswa?.kode_pos,
     ].filter(Boolean);
-    
+
     return parts.length > 0 ? parts.join(', ') : 'Alamat belum lengkap';
   }, [siswa, user]);
 
@@ -592,7 +590,7 @@ const HomeScreen = ({ navigation }: any) => {
     } finally {
       setLoading(false);
     }
-  }, [siswa]);  
+  }, [siswa]);
 
   // Fungsi Logout yang baru (hanya memicu modal)
   const onLogoutPress = useCallback(() => {
@@ -624,10 +622,10 @@ const HomeScreen = ({ navigation }: any) => {
               />
             </View>
             <Skeleton width={220} height={32} className="mb-3 rounded-lg" />
-            
+
             {/* NISN Pill Skeleton */}
             <Skeleton width={160} height={24} className="mb-4 rounded-full" />
-            
+
             {/* Rombel Pill Skeleton */}
             <Skeleton width={140} height={32} className="rounded-2xl" />
           </View>

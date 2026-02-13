@@ -648,7 +648,9 @@ class SiswaController extends Controller
                     'message' => $message,
                     'status' => $item->status,
                     'date' => Carbon::parse($item->updated_at)->diffForHumans(),
-                    'type' => $type
+                    'type' => $type,
+                    'data_perubahan' => $item->data_perubahan,
+                    'catatan' => $item->catatan_operator
                 ];
             });
 
@@ -699,6 +701,12 @@ class SiswaController extends Controller
     $user = $request->user();
     $siswa = $user->siswa;
     if (!$siswa) return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
+
+    $request->validate([
+        'tahun_lahir_ayah' => 'nullable|numeric|digits:4',
+        'tahun_lahir_ibu'  => 'nullable|numeric|digits:4',
+        'tahun_lahir_wali' => 'nullable|numeric|digits:4',
+    ]);
 
     $input = $request->all();
     $directChanges = [];
@@ -785,7 +793,7 @@ class SiswaController extends Controller
             if ($existingPending) {
                 // LOGIKA BARU: APPEND/MERGE ke pengajuan yang sudah ada
                 // Ini memungkinkan user menambah perubahan colom lain meski status masih pending
-                $currentData = $existingPending->data_perubahan; 
+                $currentData = $existingPending->data_perubahan;
                 if (is_string($currentData)) $currentData = json_decode($currentData, true) ?? [];
 
                 // Gabungkan: Data baru menimpa data lama (atau menambah key baru)

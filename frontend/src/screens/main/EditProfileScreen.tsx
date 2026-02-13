@@ -405,32 +405,32 @@ const InputField = memo(
     const bgColor = isDisabled
       ? '#f1f5f9'
       : isPending
-      ? '#fefce8'
-      : isLocked
-      ? '#fffbeb'
-      : 'white';
+        ? '#fefce8'
+        : isLocked
+          ? '#fffbeb'
+          : 'white';
     const borderColor =
       isFocused && !isDisabled && !isPending && !isLocked
         ? '#3b82f6'
         : isDisabled
-        ? '#e2e8f0'
-        : isPending
-        ? '#fde047'
-        : isLocked
-        ? '#fde68a'
-        : '#e2e8f0';
+          ? '#e2e8f0'
+          : isPending
+            ? '#fde047'
+            : isLocked
+              ? '#fde68a'
+              : '#e2e8f0';
     const iconColor = isDisabled
       ? '#cbd5e1'
       : isPending
-      ? '#ca8a04'
-      : isLocked
-      ? '#d97706'
-      : '#94a3b8';
+        ? '#ca8a04'
+        : isLocked
+          ? '#d97706'
+          : '#94a3b8';
     const textColor = isDisabled
       ? '#94a3b8'
       : isPending
-      ? '#854d0e'
-      : '#1e293b';
+        ? '#854d0e'
+        : '#1e293b';
 
     return (
       <View style={{ marginBottom: 24 }}>
@@ -686,10 +686,10 @@ const SegmentedField = memo(
     const iconColor = isPending
       ? '#ca8a04'
       : disabled
-      ? '#cbd5e1'
-      : isLocked
-      ? '#d97706'
-      : '#94a3b8';
+        ? '#cbd5e1'
+        : isLocked
+          ? '#d97706'
+          : '#94a3b8';
 
     return (
       <View style={{ marginBottom: 24 }}>
@@ -789,17 +789,17 @@ const SegmentedField = memo(
             backgroundColor: isPending
               ? '#fefce8'
               : disabled
-              ? '#f1f5f9'
-              : isLocked
-              ? '#fffbeb'
-              : 'white',
+                ? '#f1f5f9'
+                : isLocked
+                  ? '#fffbeb'
+                  : 'white',
             borderColor: isPending
               ? '#fde047'
               : disabled
-              ? '#e2e8f0'
-              : isLocked
-              ? '#fde68a'
-              : '#e2e8f0',
+                ? '#e2e8f0'
+                : isLocked
+                  ? '#fde68a'
+                  : '#e2e8f0',
           }}
         >
           <Icon size={20} color={iconColor} />
@@ -1067,18 +1067,18 @@ const SelectField = memo(
             backgroundColor: isPending
               ? '#fefce8'
               : disabled
-              ? '#f1f5f9'
-              : isLocked
-              ? '#fffbeb'
-              : 'white',
+                ? '#f1f5f9'
+                : isLocked
+                  ? '#fffbeb'
+                  : 'white',
             borderWidth: 1,
             borderColor: isPending
               ? '#fde047'
               : disabled
-              ? '#e2e8f0'
-              : isLocked
-              ? '#fde68a'
-              : '#e2e8f0',
+                ? '#e2e8f0'
+                : isLocked
+                  ? '#fde68a'
+                  : '#e2e8f0',
           }}
         >
           <Icon
@@ -1087,10 +1087,10 @@ const SelectField = memo(
               isPending
                 ? '#ca8a04'
                 : disabled
-                ? '#cbd5e1'
-                : isLocked
-                ? '#d97706'
-                : '#94a3b8'
+                  ? '#cbd5e1'
+                  : isLocked
+                    ? '#d97706'
+                    : '#94a3b8'
             }
           />
           <Text
@@ -1102,10 +1102,10 @@ const SelectField = memo(
               color: isPending
                 ? '#a16207'
                 : disabled
-                ? '#94a3b8'
-                : value
-                ? '#1e293b'
-                : '#94a3b8',
+                  ? '#94a3b8'
+                  : value
+                    ? '#1e293b'
+                    : '#94a3b8',
             }}
           >
             {value || `Pilih ${label}`}
@@ -1369,14 +1369,14 @@ const DateField = memo(
             backgroundColor: isPending
               ? '#fefce8'
               : isLocked
-              ? '#fffbeb'
-              : 'white',
+                ? '#fffbeb'
+                : 'white',
             borderWidth: 1,
             borderColor: isPending
               ? '#fde047'
               : isLocked
-              ? '#fde68a'
-              : '#e2e8f0',
+                ? '#fde68a'
+                : '#e2e8f0',
           }}
         >
           <Calendar
@@ -1460,7 +1460,7 @@ const RegionPicker = memo(
     // Fetch regencies when province changes or is already selected
     useEffect(() => {
       if (!formData.provinsi || regions.provinces.length === 0) return;
-      
+
       const province = regions.provinces.find(
         (p: any) => normalizeRegionName(p.nama) === normalizeRegionName(formData.provinsi),
       );
@@ -1487,7 +1487,7 @@ const RegionPicker = memo(
     // Fetch districts when regency changes or is already selected
     useEffect(() => {
       if (!formData.kabupaten_kota || regions.regencies.length === 0) return;
-      
+
       const regency = regions.regencies.find(
         (r: any) => normalizeRegionName(r.nama) === normalizeRegionName(formData.kabupaten_kota),
       );
@@ -1512,7 +1512,7 @@ const RegionPicker = memo(
     // Fetch villages when district changes or is already selected
     useEffect(() => {
       if (!formData.kecamatan || regions.districts.length === 0) return;
-      
+
       const district = regions.districts.find(
         (d: any) => normalizeRegionName(d.nama) === normalizeRegionName(formData.kecamatan),
       );
@@ -1730,7 +1730,19 @@ const FormSection = memo(({ title, icon: Icon, children }: any) => (
 
 // Optimized ProfileSkeleton
 const ProfileSkeleton = memo(() => (
-  <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+  <View style={styles.container}>
+    {/* Header Skeleton */}
+    <View style={styles.header}>
+      <View style={styles.backButton}>
+        <Skeleton width={24} height={24} borderRadius={12} />
+      </View>
+      <View style={{ alignItems: 'center' }}>
+        <Skeleton width={100} height={20} style={{ marginBottom: 4 }} />
+        <Skeleton width={80} height={12} />
+      </View>
+      <View style={{ width: 40 }} />
+    </View>
+
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingBottom: 100 }}
@@ -1759,16 +1771,18 @@ const ProfileSkeleton = memo(() => (
             <Skeleton width={40} height={14} />
           </View>
           <Skeleton width="100%" height={12} borderRadius={6} />
+          <Skeleton width={200} height={10} style={{ marginTop: 8 }} />
         </View>
+
         <View
           style={{
             marginHorizontal: 24,
             padding: 16,
             width: '88%',
-            backgroundColor: '#f8fafc',
+            backgroundColor: '#eff6ff',
             borderRadius: 16,
             borderWidth: 1,
-            borderColor: '#f1f5f9',
+            borderColor: '#dbeafe',
             flexDirection: 'row',
             alignItems: 'flex-start',
             marginBottom: 24,
@@ -1777,19 +1791,129 @@ const ProfileSkeleton = memo(() => (
           <Skeleton width={20} height={20} borderRadius={10} />
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Skeleton width={150} height={12} style={{ marginBottom: 6 }} />
-            <Skeleton width="100%" height={10} style={{ marginBottom: 4 }} />
-            <Skeleton width="80%" height={10} style={{ marginBottom: 8 }} />
-            <Skeleton width={80} height={20} borderRadius={10} />
+            <Skeleton width="90%" height={10} style={{ marginBottom: 4 }} />
+            <Skeleton width="60%" height={10} style={{ marginBottom: 8 }} />
+            <Skeleton width={100} height={20} borderRadius={10} />
           </View>
         </View>
-        <View style={{ alignItems: 'center' }}>
+
+        <View
+          style={{
+            width: 112,
+            height: 112,
+            borderRadius: 56,
+            backgroundColor: '#f1f5f9',
+            borderWidth: 4,
+            borderColor: 'white',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 12,
+          }}
+        >
           <Skeleton
             variant="circle"
             width={112}
             height={112}
-            style={{ marginBottom: 12 }}
+            borderRadius={56}
           />
-          <Skeleton width={100} height={12} />
+        </View>
+        <Skeleton width={120} height={12} />
+      </View>
+
+      {/* Guide Loading */}
+      <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+        <View
+          style={{
+            padding: 16,
+            backgroundColor: 'white',
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: '#e2e8f0',
+          }}
+        >
+          <Skeleton width={150} height={14} style={{ marginBottom: 16 }} />
+          <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+            <Skeleton
+              width={20}
+              height={20}
+              borderRadius={6}
+              style={{ marginRight: 12 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Skeleton width={100} height={12} style={{ marginBottom: 4 }} />
+              <Skeleton width="80%" height={10} />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row' }}>
+            <Skeleton
+              width={20}
+              height={20}
+              borderRadius={6}
+              style={{ marginRight: 12 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Skeleton width={100} height={12} style={{ marginBottom: 4 }} />
+              <Skeleton width="80%" height={10} />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Tabs Loading */}
+      <View
+        style={{
+          paddingHorizontal: 24,
+          marginBottom: 24,
+          flexDirection: 'row',
+          gap: 8,
+        }}
+      >
+        {[1, 2, 3, 4].map(i => (
+          <Skeleton key={i} width={100} height={40} borderRadius={24} />
+        ))}
+      </View>
+
+      {/* Form Loading */}
+      <View style={{ paddingHorizontal: 24 }}>
+        <View
+          style={{
+            backgroundColor: 'white',
+            borderRadius: 32,
+            padding: 24,
+            borderWidth: 1,
+            borderColor: '#f1f5f9',
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 24,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#f8fafc',
+            }}
+          >
+            <Skeleton
+              width={40}
+              height={40}
+              borderRadius={12}
+              style={{ marginRight: 16 }}
+            />
+            <Skeleton width={150} height={20} />
+          </View>
+
+          {[1, 2, 3, 4, 5].map(i => (
+            <View key={i} style={{ marginBottom: 24 }}>
+              <Skeleton width={100} height={12} style={{ marginBottom: 8 }} />
+              <Skeleton width="100%" height={56} borderRadius={16} />
+            </View>
+          ))}
         </View>
       </View>
     </ScrollView>
@@ -1816,7 +1940,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
     message: '',
     type: 'success',
     children: null,
-    onClose: () => {},
+    onClose: () => { },
   });
   const [isReady, setIsReady] = useState(false);
   const [activeTab, setActiveTab] = useState('Pribadi');
@@ -1936,7 +2060,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 ? JSON.parse(req.data_perubahan)
                 : req.data_perubahan;
             newOverrides = { ...newOverrides, ...d };
-          } catch (e) {}
+          } catch (e) { }
         }
       });
 
@@ -2085,11 +2209,14 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
         if (key !== 'foto' && key !== 'berkas' && formData[key] !== null)
           data.append(key, String(formData[key]));
       });
+      // Append keys even if empty to ensure they are sent if needed
+      // but usually formData loop covers it.
 
       const response = await api.post('/siswa/update', data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
+      // Update state based on response strictly
       if (response.data.user) {
         setTimeout(() => {
           ReactNativeHapticFeedback.trigger(
@@ -2107,47 +2234,92 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
           `META_${storageKey}`,
           JSON.stringify({ timestamp: Date.now(), etag: null }),
         );
-        initialDataRef.current = { ...formData };
-        if (response.data.user.siswa?.pengajuan_perubahan) {
-          setPengajuanList(response.data.user.siswa.pengajuan_perubahan);
+
+        const userData = response.data.user;
+
+        // Update pengajuan list first
+        if (userData.siswa?.pengajuan_perubahan) {
+          setPengajuanList(userData.siswa.pengajuan_perubahan);
         }
+
+        // Re-calculate overrides based on the NEW pengajuanList from server
+        let newOverrides: any = {};
+        if (userData.siswa?.pengajuan_perubahan) {
+          userData.siswa.pengajuan_perubahan.forEach((req: any) => {
+            if (req.status === 'pending' && req.data_perubahan) {
+              try {
+                const d = typeof req.data_perubahan === 'string'
+                  ? JSON.parse(req.data_perubahan)
+                  : req.data_perubahan;
+                newOverrides = { ...newOverrides, ...d };
+              } catch (e) { }
+            }
+          });
+        }
+
+        // Re-construct formData to be in sync with server state + pending overrides
+        const newFormData = {
+          ...(userData.siswa || {}),
+          ...newOverrides,
+          alamat_jalan: newOverrides.alamat_jalan ?? userData.alamat ?? userData.siswa?.alamat_jalan ?? '',
+          email_akun: newOverrides.email_akun ?? userData.username ?? '',
+          nomor_telepon_rumah: newOverrides.nomor_telepon_rumah ?? userData.siswa?.nomor_telepon_rumah ?? userData.no_telepon ?? '',
+          no_hp_akun: newOverrides.no_hp_akun ?? userData.no_hp ?? '',
+        };
+
+        setFormData(newFormData);
+        initialDataRef.current = { ...newFormData };
+        setLastSynced(new Date());
       }
 
       const { pending_status, direct_updated } = response.data;
       const isPendingTrouble =
         pending_status === 'limit_reached' ||
         pending_status === 'pending_exists';
-      const hasSuccess = successFields.length > 0 && direct_updated;
-      const hasPending = pendingFieldsList.length > 0;
+
+      // Determine actual success/pending based on response context
+      // Note: If we just created a pending request (pending_status === 'ok' or similar), 
+      // then pendingFieldsList contains the keys that ARE now pending.
+      // direct_updated might be true if SOME fields (non-locked) were updated.
+
+      const hasActualSuccess = successFields.length > 0 && direct_updated;
+      const hasActualPending = pendingFieldsList.length > 0 && !isPendingTrouble; // limits logic handled separately
 
       let modalTitle = 'Perubahan Disimpan ✅';
       let modalType: any = 'success';
       let modalMessage = 'Data profil berhasil diperbarui.';
 
-      if (hasPending && isPendingTrouble && !hasSuccess) {
+      if (pendingFieldsList.length > 0 && isPendingTrouble && !hasActualSuccess) {
         modalTitle = 'Perubahan Belum Diterapkan';
         modalType = 'warning';
         modalMessage =
           'Perubahan data penting Anda belum dapat diproses saat ini.';
-      } else if (hasPending && isPendingTrouble && hasSuccess) {
+      } else if (pendingFieldsList.length > 0 && isPendingTrouble && hasActualSuccess) {
         modalTitle = 'Disimpan Sebagian';
         modalType = 'warning';
         modalMessage = 'Data umum tersimpan, namun data penting tertunda.';
+      } else if (hasActualPending && !hasActualSuccess) {
+        modalTitle = 'Menunggu Verifikasi ⏳';
+        modalType = 'info';
+        modalMessage = 'Data penting telah diajukan dan menunggu persetujuan sekolah.';
+      } else if (hasActualPending && hasActualSuccess) {
+        modalTitle = 'Berhasil & Menunggu Verifikasi';
+        modalType = 'info';
+        modalMessage = 'Data langsung tersimpan, data penting menunggu persetujuan.';
       }
 
-      // ... rest of modal content logic (simplified for brevity)
-      // ... rest of modal content logic (simplified for brevity)
       handleShowStatus(
-        modalTitle, 
-        modalMessage, 
+        modalTitle,
+        modalMessage,
         modalType,
         <View style={{ marginTop: 12 }}>
-          {hasPending && pendingFieldsList.length > 0 && (
+          {/* Show Pending List if we have valid pending fields */}
+          {pendingFieldsList.length > 0 && !isPendingTrouble && (
             <View style={{ marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#fffbeb', padding: 8, borderRadius: 8 }}>
                 <Lock size={14} color="#d97706" style={{ marginRight: 6 }} />
                 <Text style={{ fontSize: 12, color: '#b45309', fontWeight: '700' }}>
-                  MENUNGGU VERIFIKASI SEKEOLAH
+                  SEDANG DICEK SEKOLAH
                 </Text>
               </View>
               {pendingFieldsList.map((field) => (
@@ -2161,7 +2333,27 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
             </View>
           )}
 
-          {hasSuccess && successFields.length > 0 && (
+          {/* Show Trouble List if any */}
+          {pendingFieldsList.length > 0 && isPendingTrouble && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#fef2f2', padding: 8, borderRadius: 8 }}>
+                <XCircle size={14} color="#ef4444" style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 12, color: '#b91c1c', fontWeight: '700' }}>
+                  GAGAL DIAJUKAN (KUOTA/PENDING)
+                </Text>
+              </View>
+              {pendingFieldsList.map((field) => (
+                <View key={field} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8 }}>
+                  <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#ef4444', marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#4b5563', fontWeight: '500' }}>
+                    {formatLabel(field)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {hasActualSuccess && (
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f0fdf4', padding: 8, borderRadius: 8 }}>
                 <CheckCircle size={14} color="#15803d" style={{ marginRight: 6 }} />
@@ -2326,10 +2518,10 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                       profileCompletion < 50
                         ? '#ef4444'
                         : profileCompletion < 80
-                        ? '#f59e0b'
-                        : profileCompletion < 100
-                        ? '#3b82f6'
-                        : '#10b981',
+                          ? '#f59e0b'
+                          : profileCompletion < 100
+                            ? '#3b82f6'
+                            : '#10b981',
                     width: `${profileCompletion}%`,
                   }}
                 />
@@ -2819,6 +3011,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                       keyboardType="numeric"
                       value={formData.tinggi_badan}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('tinggi_badan')}
                       compact
                     />
                   </View>
@@ -2831,6 +3024,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                       keyboardType="numeric"
                       value={formData.berat_badan}
                       onChangeText={handleChange}
+                      isPending={pendingFields.includes('berat_badan')}
                       compact
                     />
                   </View>
@@ -3288,8 +3482,8 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 backgroundColor: loading
                   ? '#cbd5e1'
                   : isDirty
-                  ? '#2563eb'
-                  : '#1e293b',
+                    ? '#2563eb'
+                    : '#1e293b',
               }}
             >
               {loading ? (
