@@ -324,20 +324,39 @@ const NotificationScreen = ({ navigation }: any) => {
                 const theme = getTheme(selectedItem.type);
                 const Icon = theme.icon;
 
-                // Parse data JSON
-                let dataPerubahan = null;
-                if (selectedItem.data_perubahan) {
-                  try {
-                    dataPerubahan =
-                      typeof selectedItem.data_perubahan === 'string'
-                        ? JSON.parse(selectedItem.data_perubahan)
-                        : selectedItem.data_perubahan;
-                  } catch (e) { }
-                }
-
                 // Tentukan Judul List & Warna
                 let listTitle = 'Rincian Data Pengajuan';
                 let listDesc = 'Berikut data yang Anda ajukan untuk diubah:';
+
+                // --- PARSING DATA (Lebih Robust) ---
+                let dataPerubahan = null;
+                if (selectedItem.data_perubahan) {
+                  try {
+                    let parsed = selectedItem.data_perubahan;
+                    // Cek jika masih string, parse lagi (kadang double stringify)
+                    if (typeof parsed === 'string') {
+                      try {
+                        parsed = JSON.parse(parsed);
+                      } catch (e) {
+                        // Jika gagal parse, mungkin itu string biasa, biarkan
+                        console.log('Parse Notif Error 1:', e);
+                      }
+                    }
+                    if (typeof parsed === 'string') {
+                      try {
+                        parsed = JSON.parse(parsed);
+                      } catch (e) {
+                        console.log('Parse Notif Error 2:', e);
+                      }
+                    }
+
+                    if (typeof parsed === 'object' && parsed !== null) {
+                      dataPerubahan = parsed;
+                    }
+                  } catch (e) {
+                    console.log('Final Parse Error:', e);
+                  }
+                }
 
                 if (selectedItem.type === 'error') {
                   listTitle = 'Kolom Ditolak';
@@ -451,14 +470,15 @@ const NotificationScreen = ({ navigation }: any) => {
                           </View>
                         </View>
                       ) : (
-                        selectedItem.type === 'error' && (
-                          <View className="py-8 items-center opacity-50">
-                            <FileText size={40} color="#cbd5e1" />
-                            <Text className="text-center text-slate-400 text-xs font-bold mt-2 uppercase">
-                              Data Tidak Tersedia
-                            </Text>
-                          </View>
-                        )
+                        <View className="py-8 items-center bg-slate-50 rounded-2xl border border-slate-100 mx-1">
+                          <FileText size={40} color="#cbd5e1" />
+                          <Text className="text-center text-slate-400 text-xs font-bold mt-3 uppercase tracking-wider mb-1">
+                            Data Tidak Tersedia
+                          </Text>
+                          <Text className="text-center text-slate-300 text-[10px] px-8">
+                            Jika ini pengajuan baru, mungkin ada keterlambatan sinkronisasi.
+                          </Text>
+                        </View>
                       )}
                     </ScrollView>
 
