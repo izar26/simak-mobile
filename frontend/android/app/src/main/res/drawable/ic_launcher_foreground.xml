@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <inset
-            android:drawable="@mipmap/ic_launcher"
+            android:drawable="@mipmap/ic_foreground"
             android:insetTop="25dp"
             android:insetBottom="25dp"
             android:insetLeft="25dp"

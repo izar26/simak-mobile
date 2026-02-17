@@ -112,6 +112,9 @@ const LOCKED_COLUMNS = new Set([
   'nomor_telepon_rumah',
   'anak_keberapa',
   'nik',
+  'nik_ayah',
+  'nik_ibu',
+  'nik_wali',
 ]);
 
 const DISABLED_COLUMNS = new Set([
@@ -180,28 +183,84 @@ const PENGHASILAN_OPTIONS = [
 ];
 
 const HOBI_OPTIONS = [
-  'Olahraga',
+  'Belanja',
+  'Berkemah',
+  'Berlari',
+  'Bermain Biola',
+  'Bermain Bola Tenis',
+  'Bermain Boneka',
+  'Bermain Bulu Tangkis',
+  'Bermain Gitar',
+  'Bermain Musik',
+  'Bermain Piano',
+  'Berselancar',
+  'Fitness',
+  'Fotografi',
+  'Jogging',
   'Kesenian',
-  'Membaca',
-  'Menulis',
-  'Traveling',
   'Lainnya',
+  'Main Puzzle',
+  'Makan',
+  'Memancing',
+  'Membaca',
+  'Mendaki',
+  'Menggambar',
+  'Menjahit',
+  'Menulis',
+  'Mewarnai',
+  'Olah Raga',
+  'Traveling',
 ];
 
 const CITA_OPTIONS = [
-  'PNS',
-  'TNI/Polri',
+  'Arsitek',
+  'Astronot',
+  'Atlet',
+  'Atlet E-Sport Profesional',
+  'Atlit Olahraga',
+  'Bidan',
+  'Content Creator',
+  "Da'i / Ustadz",
+  'Designer',
+  'Dokter',
+  'Entertainer / Pekerja Seni',
   'Guru/Dosen',
-  'Dokter/Tenaga Medis',
-  'Wiraswasta',
-  'Seniman/Artis',
+  'Koki',
   'Lainnya',
+  'Masinis Kereta Api',
+  'Pegawai Negeri Sipil / PNS',
+  'Pelaut',
+  'Pemadam Kebakaran',
+  'Pembalap',
+  'Pembawa Acara / Master Ceremony',
+  'Pendeta',
+  'Pengacara',
+  "Penghafal Al-Qur'an",
+  'Pengusaha / Bisnismen',
+  'Penulis',
+  'Penyiar Radio',
+  'Perawat',
+  'Perawat / Suster',
+  'Pilot',
+  'PNS',
+  'Polisi',
+  'Politikus',
+  'Presiden',
+  'Seni/Lukis/Artis/Sejenis',
+  'TNI/Polri',
+  'Translator',
+  'Vloger',
+  'Wartawan',
+  'Wiraswasta',
 ];
 
 const PROFILE_STRENGTH_FIELDS = [
   'nama',
   'nisn',
   'nik',
+  'nik_ayah',
+  'nik_ibu',
+  'nik_wali',
   'no_kk',
   'tempat_lahir',
   'tanggal_lahir',
@@ -258,6 +317,9 @@ const LABEL_MAP: Record<string, string> = {
   alamat_jalan: 'Alamat Jalan',
   email_akun: 'Email',
   no_hp_akun: 'No. HP',
+  nik_ayah: 'NIK Ayah',
+  nik_ibu: 'NIK Ibu',
+  nik_wali: 'NIK Wali',
   nama_ayah: 'Nama Ayah',
   nama_ibu: 'Nama Ibu',
 };
@@ -3109,6 +3171,16 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 </Text>
                 <InputField
                   onAlert={handleShowStatus}
+                  label="NIK Ayah"
+                  fieldKey="nik_ayah"
+                  icon={Info}
+                  keyboardType="numeric"
+                  value={formData.nik_ayah}
+                  onChangeText={handleChange}
+                  isPending={pendingFields.includes('nik_ayah')}
+                />
+                <InputField
+                  onAlert={handleShowStatus}
                   label="Nama Ayah"
                   fieldKey="nama_ayah"
                   icon={User}
@@ -3182,6 +3254,16 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 </Text>
                 <InputField
                   onAlert={handleShowStatus}
+                  label="NIK Ibu"
+                  fieldKey="nik_ibu"
+                  icon={Info}
+                  keyboardType="numeric"
+                  value={formData.nik_ibu}
+                  onChangeText={handleChange}
+                  isPending={pendingFields.includes('nik_ibu')}
+                />
+                <InputField
+                  onAlert={handleShowStatus}
                   label="Nama Ibu"
                   fieldKey="nama_ibu"
                   icon={User}
@@ -3253,6 +3335,16 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 >
                   Data Wali (Opsional)
                 </Text>
+                <InputField
+                  onAlert={handleShowStatus}
+                  label="NIK Wali"
+                  fieldKey="nik_wali"
+                  icon={Info}
+                  keyboardType="numeric"
+                  value={formData.nik_wali}
+                  onChangeText={handleChange}
+                  isPending={pendingFields.includes('nik_wali')}
+                />
                 <InputField
                   onAlert={handleShowStatus}
                   label="Nama Wali"

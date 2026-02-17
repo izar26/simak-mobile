@@ -111,6 +111,9 @@ export interface EditProfileFormData {
   kabupaten_kota: string;
   kode_pos: string;
   foto?: string;
+  nik_ayah?: string;
+  nik_ibu?: string;
+  nik_wali?: string;
 }
 
 // ✅ NAVIGATION

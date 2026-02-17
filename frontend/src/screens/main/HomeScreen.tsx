@@ -58,6 +58,10 @@ import { getToken, logout } from '../../services/auth';
 import { MAIN_APP_URL, API_URL } from '@env';
 import StatusModal from '../../components/StatusModal';
 import Skeleton from '../../components/Skeleton';
+import {
+  checkAndRequestDownloadPermission,
+  getDownloadConfig,
+} from '../../services/PermissionHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -531,49 +535,34 @@ const HomeScreen = ({ navigation }: any) => {
       return;
     }
 
-    // Request permission first
-    const hasPermission = await requestStoragePermission();
+    // Gunakan Helper untuk cek permission
+    const hasPermission = await checkAndRequestDownloadPermission();
     if (!hasPermission) {
       setModalStatus({
         visible: true,
         type: 'error',
         title: 'Izin Ditolak',
-        message:
-          'Anda perlu memberikan izin akses penyimpanan untuk mengunduh file.',
+        message: 'Aplikasi butuh izin penyimpanan untuk mengunduh file.',
       });
       return;
     }
+
     setLoading(true);
     try {
       const token = await getToken();
       const fileName = `Biodata_${siswa.nama.replace(/\s+/g, '_')}.pdf`;
 
-      // FORCED PATH: Kita tembak langsung ke folder download publik
-      // Kita bersihkan path agar tidak masuk ke folder /Android/data/
-      const PUBLIC_DOWNLOAD_DIR = '/storage/emulated/0/Download';
-      const downloadPath = `${PUBLIC_DOWNLOAD_DIR}/${fileName}`;
+      // Gunakan Helper untuk config download
+      const config = getDownloadConfig(fileName, 'application/pdf', 'Mengunduh Biodata Siswa...');
 
-      console.log('Targeting Public Path:', downloadPath);
-
-      await ReactNativeBlobUtil.config({
-        fileCache: true, // Simpan ke cache dulu
-        addAndroidDownloads: {
-          useDownloadManager: true, // Wajib agar muncul di notifikasi & sistem
-          notification: true,
-          path: downloadPath, // Menimpa default path ke lokasi publik
-          description: 'Mengunduh Biodata Siswa...',
-          mediaScannable: true,
-          title: fileName,
-          mime: 'application/pdf',
-        },
-      })
+      await ReactNativeBlobUtil.config(config)
         .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
           Authorization: `Bearer ${token}`,
         })
         .then(async res => {
           console.log('File Downloaded to:', res.path());
 
-          // PENTING: Kadang DownloadManager butuh dipicu manual agar file muncul di Galeri/Files
+          // PENTING: Scan file agar muncul di aplikasi File Manager / Gallery
           if (Platform.OS === 'android') {
             ReactNativeBlobUtil.fs.scanFile([
               { path: res.path(), mime: 'application/pdf' },
@@ -589,8 +578,12 @@ const HomeScreen = ({ navigation }: any) => {
         });
     } catch (error) {
       console.error('Download Error:', error);
-      // Jika muncul "Permission Denied" saat menulis ke /storage/emulated/0/Download,
-      // itu artinya Android 11+ butuh penanganan khusus atau user harus klik 'Izinkan'
+      setModalStatus({
+        visible: true,
+        type: 'error',
+        title: 'Gagal Mengunduh',
+        message: 'Terjadi kesalahan saat mengunduh file.',
+      });
     } finally {
       setLoading(false);
     }

@@ -16,42 +16,16 @@ import QRCode from 'react-native-qrcode-svg';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { ChevronLeft, Download } from 'lucide-react-native';
 import { MAIN_APP_URL } from '@env';
-const android = ReactNativeBlobUtil.android;
 import StatusModal from '../../components/StatusModal';
+import {
+  checkAndRequestDownloadPermission,
+  getDownloadConfig,
+  saveToMediaStore, // Tambahkan import ini
+} from '../../services/PermissionHelper';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
 const CARD_HEIGHT = CARD_WIDTH * 1.58; // Aspect ratio ~56mm / 88mm
-
-// ✅ PERMISSION HELPER (Sama dengan HomeScreen & BerkasScreen)
-const requestStoragePermission = async () => {
-  // Android 13+ (SDK 33+) tidak butuh permission manual untuk DownloadManager ke public folder
-  if (Platform.OS === 'android' && Platform.Version >= 33) {
-    return true;
-  }
-
-  // Android 12 ke bawah butuh WRITE_EXTERNAL_STORAGE
-  if (Platform.OS === 'android') {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        {
-          title: 'Izin Akses Penyimpanan',
-          message:
-            'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan kartu pelajar.',
-          buttonNeutral: 'Tanya Nanti',
-          buttonNegative: 'Batal',
-          buttonPositive: 'Izinkan',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  }
-  return true;
-};
 
 const StudentCardScreen = ({ navigation, route }: any) => {
   const { user } = route.params;
@@ -100,14 +74,13 @@ const StudentCardScreen = ({ navigation, route }: any) => {
   }, [bgUrl, logoUrl, fotoUrl, imagesLoaded]);
 
   const handleDownload = async () => {
-    // Request permission first
-    const hasPermission = await requestStoragePermission();
+    // Gunakan Helper untuk cek permission
+    const hasPermission = await checkAndRequestDownloadPermission();
     if (!hasPermission) {
       setAlertConfig({
         visible: true,
         title: 'Izin Ditolak',
-        message:
-          'Anda perlu memberikan izin akses penyimpanan untuk menyimpan kartu pelajar.',
+        message: 'Aplikasi butuh izin penyimpanan untuk menyimpan kartu.',
         type: 'error',
         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
       });
@@ -117,58 +90,25 @@ const StudentCardScreen = ({ navigation, route }: any) => {
     setLoading(true);
     try {
       const uri = await viewShotRef.current.capture();
-
       const fileName = `Kartu_Pelajar_${siswa.nisn || 'Siswa'}.png`;
-      const { dirs } = ReactNativeBlobUtil.fs;
-
-      // Target utama: Folder Download Publik
-      const downloadPath = `${dirs.DownloadDir}/${fileName}`;
 
       // Bersihkan prefix file:// jika ada
-      let sourcePath = uri as string;
+      let sourcePath = uri;
       if (sourcePath.startsWith('file://')) {
         sourcePath = sourcePath.replace('file://', '');
       }
 
-      // Read captured image as base64
-      const base64 = await ReactNativeBlobUtil.fs.readFile(sourcePath, 'base64');
+      // Panggil Helper saveToMediaStore (Ringan & Aman OOM)
+      const savedPath = await saveToMediaStore(sourcePath, fileName, 'photo');
 
-      // Tulis ke folder Download
-      await ReactNativeBlobUtil.fs.writeFile(downloadPath, base64, 'base64');
+      console.log('Saved to:', savedPath);
 
-      // Scan file agar muncul di Gallery/Recent Images
-      try {
-        await ReactNativeBlobUtil.fs.scanFile([{ path: downloadPath, mime: 'image/png' }]);
-      } catch (scanErr) {
-        console.warn('Media Scan Error:', scanErr);
-      }
-
-      // Opsional: Coba daftarkan ke DownloadManager agar muncul notifikasi sistem (Android only)
-      if (Platform.OS === 'android') {
-        try {
-          const addCfg = {
-            title: fileName,
-            description: 'Kartu Pelajar Disimpan',
-            mime: 'image/png',
-            path: downloadPath,
-            showNotification: true,
-          };
-          if (android && 'addCompleteDownload' in android) {
-            await (android as any).addCompleteDownload(addCfg);
-          }
-        } catch (dmErr) {
-          console.warn('DownloadManager Error:', dmErr);
-        }
-      }
-
-      console.log('Student card saved to:', downloadPath);
       setAlertConfig({
         visible: true,
         title: 'Berhasil Disimpan!',
-        message: `Kartu pelajar tersimpan di folder Download.`,
+        message: `Kartu pelajar tersimpan di Galeri/Download.`,
         type: 'success',
-        onClose: () =>
-          setAlertConfig(prev => ({ ...prev, visible: false })),
+        onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
       });
 
     } catch (error: any) {
@@ -176,11 +116,9 @@ const StudentCardScreen = ({ navigation, route }: any) => {
       setAlertConfig({
         visible: true,
         title: 'Gagal Menyimpan',
-        message: `Error: ${error?.message || 'Gagal menyalin kartu ke folder Download.'
-          }`,
+        message: `Error: ${error?.message || 'Gagal menyimpan kartu.'}`,
         type: 'error',
-        onClose: () =>
-          setAlertConfig(prev => ({ ...prev, visible: false })),
+        onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
       });
     } finally {
       setLoading(false);
