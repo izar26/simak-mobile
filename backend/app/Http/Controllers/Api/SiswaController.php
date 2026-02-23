@@ -34,7 +34,7 @@ class SiswaController extends Controller
         'tahun_lahir_ayah', 'tahun_lahir_ibu', 'tahun_lahir_wali',
         'pendidikan_ayah_id_str', 'pendidikan_ibu_id_str', 'pendidikan_wali_id_str',
         'penghasilan_ayah_id_str', 'penghasilan_ibu_id_str', 'penghasilan_wali_id_str',
-        'anak_keberapa', 'alamat_jalan', 'nomor_telepon_rumah', 'no_hp_akun'
+        'anak_keberapa', 'alamat_jalan', 'nomor_telepon_rumah', 'no_hp_akun', 'nik_ayah', 'nik_ibu', 'nik_wali'
     ];
 
     /**
