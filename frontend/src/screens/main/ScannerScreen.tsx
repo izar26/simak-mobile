@@ -265,7 +265,7 @@ const ScannerScreen = ({ navigation }: any) => {
             {scanResult.siswa?.foto_url ? (
                <Animated.Image 
                  entering={FadeIn.delay(100)}
-                 source={{ uri: `${MAIN_APP_URL}/storage/${scanResult.siswa.foto_url}` }} 
+                 source={{ uri: `${API_URL}/thumbnail?path=${encodeURIComponent(scanResult.siswa.foto_url)}&w=150` }} 
                  className="w-14 h-14 rounded-2xl border-2 border-white/20 mr-4" 
                  resizeMode="cover"
                />

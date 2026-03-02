@@ -61,7 +61,7 @@ import StatusModal from '../../components/StatusModal';
 import Skeleton from '../../components/Skeleton';
 import {
   checkAndRequestDownloadPermission,
-  getDownloadConfig,
+  saveToMediaStore,
 } from '../../services/PermissionHelper';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -578,28 +578,35 @@ const HomeScreen = ({ navigation }: any) => {
       const token = await getToken();
       const fileName = `Biodata_${siswa.nama.replace(/\s+/g, '_')}.pdf`;
 
-      // Gunakan Helper untuk config download
-      const config = getDownloadConfig(fileName, 'application/pdf', 'Mengunduh Biodata Siswa...');
+      setModalStatus({
+        visible: true,
+        type: 'info' as any,
+        title: 'Mengunduh...',
+        message: 'Mohon tunggu sebentar.',
+      });
+
+      const config = {
+        fileCache: true,
+        appendExt: 'pdf',
+      };
 
       await ReactNativeBlobUtil.config(config)
         .fetch('GET', `${API_URL}/siswa/cetak-biodata`, {
           Authorization: `Bearer ${token}`,
         })
         .then(async res => {
-          console.log('File Downloaded to:', res.path());
+          // Panggil Helper saveToMediaStore
+          const savedPath = await saveToMediaStore(res.path(), fileName, 'download');
+          
+          res.flush(); // Hapus file dari cache
 
-          // PENTING: Scan file agar muncul di aplikasi File Manager / Gallery
-          if (Platform.OS === 'android') {
-            ReactNativeBlobUtil.fs.scanFile([
-              { path: res.path(), mime: 'application/pdf' },
-            ]);
-          }
+          console.log('File Downloaded to:', savedPath);
 
           setModalStatus({
             visible: true,
             type: 'success',
             title: 'Unduhan Berhasil!',
-            message: `File tersimpan di folder Download Utama`,
+            message: savedPath,
           });
         });
     } catch (error) {

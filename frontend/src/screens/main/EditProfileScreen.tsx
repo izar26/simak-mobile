@@ -97,9 +97,7 @@ const LOCKED_COLUMNS = new Set([
   'alamat_jalan',
   'nomor_telepon_rumah',
   'no_hp_akun',
-  'nik_ayah',
-  'nik_ibu',
-  'nik_wali',
+  'nik',
   'nama_ayah',
   'nama_ibu',
   'nama_wali',
@@ -115,12 +113,12 @@ const LOCKED_COLUMNS = new Set([
   'penghasilan_ayah_id_str',
   'penghasilan_ibu_id_str',
   'penghasilan_wali_id_str',
+  'sekolah_asal',
 ]);
 
 const DISABLED_COLUMNS = new Set([
   'nipd',
   'nisn',
-  'nik',
 ]);
 
 const PEKERJAAN_OPTIONS = [
@@ -257,22 +255,9 @@ const PROFILE_STRENGTH_FIELDS = [
   'nama',
   'nisn',
   'nik',
-  'nik_ayah',
-  'nik_ibu',
-  'nik_wali',
-  'no_kk',
   'tempat_lahir',
   'tanggal_lahir',
   'alamat_jalan',
-  'rt',
-  'rw',
-  'desa_kelurahan',
-  'kecamatan',
-  'kabupaten_kota',
-  'provinsi',
-  'kode_pos',
-  'email',
-  'no_hp_akun',
   'nama_ayah',
   'tahun_lahir_ayah',
   'pendidikan_ayah_id_str',
@@ -281,8 +266,6 @@ const PROFILE_STRENGTH_FIELDS = [
   'tahun_lahir_ibu',
   'pendidikan_ibu_id_str',
   'pekerjaan_ibu_id_str',
-  'hobi',
-  'cita_cita',
 ];
 
 const YES_NO_OPTIONS = ['Ya', 'Tidak'];
@@ -310,15 +293,9 @@ const LABEL_MAP: Record<string, string> = {
   nama: 'Nama Lengkap',
   nisn: 'NISN',
   nik: 'NIK',
-  no_kk: 'Nomor KK',
   tempat_lahir: 'Tempat Lahir',
   tanggal_lahir: 'Tanggal Lahir',
   alamat_jalan: 'Alamat Jalan',
-  email: 'Email Aktif',
-  no_hp_akun: 'No. HP',
-  nik_ayah: 'NIK Ayah',
-  nik_ibu: 'NIK Ibu',
-  nik_wali: 'NIK Wali',
   nama_ayah: 'Nama Ayah',
   nama_ibu: 'Nama Ibu',
 };
@@ -2133,7 +2110,6 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
           userData.alamat ??
           userData.siswa?.alamat_jalan ??
           '',
-        email: newOverrides.email ?? userData.siswa?.email ?? '',
         nomor_telepon_rumah:
           newOverrides.nomor_telepon_rumah ??
           userData.siswa?.nomor_telepon_rumah ??
@@ -2318,12 +2294,10 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
           });
         }
 
-        // Re-construct formData to be in sync with server state + pending overrides
         const newFormData = {
           ...(userData.siswa || {}),
           ...newOverrides,
           alamat_jalan: newOverrides.alamat_jalan ?? userData.alamat ?? userData.siswa?.alamat_jalan ?? '',
-          email: newOverrides.email ?? userData.siswa?.email ?? '',
           nomor_telepon_rumah: newOverrides.nomor_telepon_rumah ?? userData.siswa?.nomor_telepon_rumah ?? userData.no_telepon ?? '',
           no_hp_akun: newOverrides.no_hp_akun ?? userData.no_hp ?? '',
         };
@@ -2850,7 +2824,11 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8 }}
             >
-              {tabs.map(tab => {
+              {[
+                { id: 'Pribadi', label: 'Pribadi', icon: User },
+                { id: 'Registrasi', label: 'Registrasi', icon: FileText },
+                { id: 'Keluarga', label: 'Keluarga', icon: Users },
+              ].map(tab => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
                 return (
@@ -2933,220 +2911,18 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                   onChangeText={handleChange}
                   isPending={pendingFields.includes('nik')}
                 />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Nomor KK"
-                  fieldKey="no_kk"
-                  icon={FileText}
-                  keyboardType="numeric"
-                  value={formData.no_kk}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('no_kk')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Tempat Lahir"
-                  fieldKey="tempat_lahir"
-                  icon={MapPin}
-                  value={formData.tempat_lahir}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('tempat_lahir')}
-                />
-                <DateField
-                  onAlert={handleShowStatus}
-                  label="Tgl Lahir"
-                  fieldKey="tanggal_lahir"
-                  value={formData.tanggal_lahir}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('tanggal_lahir')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Anak Keberapa"
-                  fieldKey="anak_keberapa"
-                  keyboardType="numeric"
-                  icon={Info}
-                  value={formData.anak_keberapa}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('anak_keberapa')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Berkebutuhan Khusus"
-                  fieldKey="kebutuhan_khusus"
-                  icon={Info}
-                  value={formData.kebutuhan_khusus}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('kebutuhan_khusus')}
-                />
-
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: '#f8fafc',
-                    marginVertical: 16,
-                  }}
-                />
-                <Text
-                  style={{
-                    color: '#94a3b8',
-                    fontSize: 10,
-                    fontWeight: '900',
-                    textTransform: 'uppercase',
-                    letterSpacing: 2,
-                    marginBottom: 16,
-                    marginLeft: 4,
-                  }}
-                >
-                  Kontak Akun
-                </Text>
-
-                <InputField
-                  label="Email Aktif"
-                  fieldKey="email"
-                  icon={FileText}
-                  value={formData.email}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('email')}
-                  onAlert={handleShowStatus}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="No. HP"
-                  fieldKey="no_hp_akun"
-                  icon={Phone}
-                  keyboardType="phone-pad"
-                  value={formData.no_hp_akun}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('no_hp_akun')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Telp Rumah"
-                  fieldKey="nomor_telepon_rumah"
-                  icon={Phone}
-                  keyboardType="phone-pad"
-                  value={formData.nomor_telepon_rumah}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('nomor_telepon_rumah')}
-                />
-
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: '#f8fafc',
-                    marginVertical: 16,
-                  }}
-                />
-                <Text
-                  style={{
-                    color: '#94a3b8',
-                    fontSize: 10,
-                    fontWeight: '900',
-                    textTransform: 'uppercase',
-                    letterSpacing: 2,
-                    marginBottom: 16,
-                    marginLeft: 4,
-                  }}
-                >
-                  Kontak Siswa
-                </Text>
-
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="WhatsApp Siswa"
-                  fieldKey="no_wa"
-                  icon={Phone}
-                  keyboardType="phone-pad"
-                  value={formData.no_wa}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('no_wa')}
-                />
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                  <View style={{ flex: 1 }}>
-                    <InputField
-                      onAlert={handleShowStatus}
-                      label="Tinggi (cm)"
-                      fieldKey="tinggi_badan"
-                      icon={Info}
-                      keyboardType="numeric"
-                      value={formData.tinggi_badan}
-                      onChangeText={handleChange}
-                      isPending={pendingFields.includes('tinggi_badan')}
-                      compact
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <InputField
-                      onAlert={handleShowStatus}
-                      label="Berat (kg)"
-                      fieldKey="berat_badan"
-                      icon={Info}
-                      keyboardType="numeric"
-                      value={formData.berat_badan}
-                      onChangeText={handleChange}
-                      isPending={pendingFields.includes('berat_badan')}
-                      compact
-                    />
-                  </View>
-                </View>
               </FormSection>
             )}
-
-            {activeTab === 'Alamat' && (
-              <FormSection title="Alamat Domisili" icon={MapPin}>
+            {activeTab === 'Registrasi' && (
+              <FormSection title="Data Registrasi" icon={FileText}>
                 <InputField
                   onAlert={handleShowStatus}
-                  label="Alamat Jalan"
-                  fieldKey="alamat_jalan"
-                  icon={MapPin}
-                  value={formData.alamat_jalan}
+                  label="Sekolah Asal"
+                  fieldKey="sekolah_asal"
+                  icon={BookOpen}
+                  value={formData.sekolah_asal}
                   onChangeText={handleChange}
-                  isPending={pendingFields.includes('alamat_jalan')}
-                />
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                  <View style={{ flex: 1 }}>
-                    <InputField
-                      onAlert={handleShowStatus}
-                      label="RT"
-                      fieldKey="rt"
-                      icon={MapPin}
-                      keyboardType="numeric"
-                      value={formData.rt}
-                      onChangeText={handleChange}
-                      isPending={pendingFields.includes('rt')}
-                      compact
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <InputField
-                      onAlert={handleShowStatus}
-                      label="RW"
-                      fieldKey="rw"
-                      icon={MapPin}
-                      keyboardType="numeric"
-                      value={formData.rw}
-                      onChangeText={handleChange}
-                      isPending={pendingFields.includes('rw')}
-                      compact
-                    />
-                  </View>
-                </View>
-                <RegionPicker
-                  formData={formData}
-                  onChange={handleChange}
-                  pendingFields={pendingFields}
-                  onShowAlert={handleShowStatus}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Kode Pos"
-                  fieldKey="kode_pos"
-                  icon={MapPin}
-                  keyboardType="numeric"
-                  value={formData.kode_pos}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('kode_pos')}
+                  isPending={pendingFields.includes('sekolah_asal')}
                 />
               </FormSection>
             )}
@@ -3170,33 +2946,12 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 </Text>
                 <InputField
                   onAlert={handleShowStatus}
-                  label="NIK Ayah"
-                  fieldKey="nik_ayah"
-                  icon={Info}
-                  keyboardType="numeric"
-                  value={formData.nik_ayah}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('nik_ayah')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
                   label="Nama Ayah"
                   fieldKey="nama_ayah"
                   icon={User}
                   value={formData.nama_ayah}
                   onChangeText={handleChange}
                   isPending={pendingFields.includes('nama_ayah')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Tahun Lahir Ayah"
-                  fieldKey="tahun_lahir_ayah"
-                  icon={Calendar}
-                  keyboardType="numeric"
-                  value={extractYear(formData.tahun_lahir_ayah)}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('tahun_lahir_ayah')}
-                  maxLength={4}
                 />
                 <SelectField
                   label="Pendidikan Ayah"
@@ -3253,33 +3008,12 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 </Text>
                 <InputField
                   onAlert={handleShowStatus}
-                  label="NIK Ibu"
-                  fieldKey="nik_ibu"
-                  icon={Info}
-                  keyboardType="numeric"
-                  value={formData.nik_ibu}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('nik_ibu')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
                   label="Nama Ibu"
                   fieldKey="nama_ibu"
                   icon={User}
                   value={formData.nama_ibu}
                   onChangeText={handleChange}
                   isPending={pendingFields.includes('nama_ibu')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Tahun Lahir Ibu"
-                  fieldKey="tahun_lahir_ibu"
-                  icon={Calendar}
-                  keyboardType="numeric"
-                  value={extractYear(formData.tahun_lahir_ibu)}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('tahun_lahir_ibu')}
-                  maxLength={4}
                 />
                 <SelectField
                   label="Pendidikan Ibu"
@@ -3336,33 +3070,12 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 </Text>
                 <InputField
                   onAlert={handleShowStatus}
-                  label="NIK Wali"
-                  fieldKey="nik_wali"
-                  icon={Info}
-                  keyboardType="numeric"
-                  value={formData.nik_wali}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('nik_wali')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
                   label="Nama Wali"
                   fieldKey="nama_wali"
                   icon={User}
                   value={formData.nama_wali}
                   onChangeText={handleChange}
                   isPending={pendingFields.includes('nama_wali')}
-                />
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Tahun Lahir Wali"
-                  fieldKey="tahun_lahir_wali"
-                  icon={Calendar}
-                  keyboardType="numeric"
-                  value={extractYear(formData.tahun_lahir_wali)}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('tahun_lahir_wali')}
-                  maxLength={4}
                 />
                 <SelectField
                   label="Pendidikan Wali"
@@ -3392,153 +3105,6 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                   options={PENGHASILAN_OPTIONS}
                   onSelect={handleChange}
                   isPending={pendingFields.includes('penghasilan_wali_id_str')}
-                  onAlert={handleShowStatus}
-                />
-              </FormSection>
-            )}
-
-            {activeTab === 'Lainnya' && (
-              <FormSection title="Data Lainnya" icon={BookOpen}>
-                <Text
-                  style={{
-                    color: '#94a3b8',
-                    fontSize: 10,
-                    fontWeight: '900',
-                    textTransform: 'uppercase',
-                    letterSpacing: 2,
-                    marginBottom: 16,
-                    marginLeft: 4,
-                  }}
-                >
-                  Kesejahteraan
-                </Text>
-                <SegmentedField
-                  label="Penerima KIP"
-                  fieldKey="penerima_kip"
-                  icon={CreditCard}
-                  value={formData.penerima_kip}
-                  onSelect={handleChange}
-                  isPending={pendingFields.includes('penerima_kip')}
-                  onAlert={handleShowStatus}
-                />
-                {formData.penerima_kip === 'Ya' && (
-                  <InputField
-                    onAlert={handleShowStatus}
-                    label="Nomor KIP"
-                    fieldKey="no_kip"
-                    icon={CreditCard}
-                    keyboardType="numeric"
-                    value={formData.no_kip}
-                    onChangeText={handleChange}
-                    isPending={pendingFields.includes('no_kip')}
-                  />
-                )}
-
-                <SegmentedField
-                  label="Penerima KPS"
-                  fieldKey="penerima_kps"
-                  icon={CreditCard}
-                  value={formData.penerima_kps}
-                  onSelect={handleChange}
-                  isPending={pendingFields.includes('penerima_kps')}
-                  onAlert={handleShowStatus}
-                />
-                {formData.penerima_kps === 'Ya' && (
-                  <InputField
-                    onAlert={handleShowStatus}
-                    label="Nomor KPS"
-                    fieldKey="no_kps"
-                    icon={CreditCard}
-                    keyboardType="numeric"
-                    value={formData.no_kps}
-                    onChangeText={handleChange}
-                    isPending={pendingFields.includes('no_kps')}
-                  />
-                )}
-
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Nomor KKS"
-                  fieldKey="no_kks"
-                  icon={CreditCard}
-                  keyboardType="numeric"
-                  value={formData.no_kks}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('no_kks')}
-                />
-
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Bank"
-                  fieldKey="bank"
-                  icon={Landmark}
-                  value={formData.bank}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('bank')}
-                />
-
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Nomor Rekening Bank"
-                  fieldKey="nomor_rekening_bank"
-                  icon={CreditCard}
-                  keyboardType="numeric"
-                  value={formData.nomor_rekening_bank}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('nomor_rekening_bank')}
-                />
-
-                <InputField
-                  onAlert={handleShowStatus}
-                  label="Atas Nama Rekening"
-                  fieldKey="rekening_atas_nama"
-                  icon={User}
-                  value={formData.rekening_atas_nama}
-                  onChangeText={handleChange}
-                  isPending={pendingFields.includes('rekening_atas_nama')}
-                />
-
-                <View
-                  style={{
-                    height: 1,
-                    backgroundColor: '#f8fafc',
-                    marginVertical: 16,
-                  }}
-                />
-
-                <Text
-                  style={{
-                    color: '#94a3b8',
-                    fontSize: 10,
-                    fontWeight: '900',
-                    textTransform: 'uppercase',
-                    letterSpacing: 2,
-                    marginBottom: 16,
-                    marginLeft: 4,
-                  }}
-                >
-                  Minat & Bakat
-                </Text>
-
-                <SelectField
-                  label="Hobi"
-                  fieldKey="hobi"
-                  icon={Smile}
-                  value={formData.hobi}
-                  options={HOBI_OPTIONS}
-                  onSelect={handleChange}
-                  isPending={pendingFields.includes('hobi')}
-                  onAlert={handleShowStatus}
-                />
-
-                <SelectField
-                  label="Cita-Cita"
-                  fieldKey="cita_cita"
-                  icon={Award}
-                  value={formData.cita_cita}
-                  options={CITA_OPTIONS}
-                  onSelect={handleChange}
-                  isPending={pendingFields.includes('cita_cita')}
                   onAlert={handleShowStatus}
                 />
               </FormSection>

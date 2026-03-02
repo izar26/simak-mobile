@@ -42,35 +42,7 @@ import { handleApiError, logError } from '../../utils/errorHandler';
 import { buildStorageUrl } from '../../utils/validation';
 import { BerkasItem } from '../../types';
 
-// ✅ PERMISSION HELPER
-const requestStoragePermission = async () => {
-  // Android 13+ (SDK 33+) tidak butuh permission manual untuk DownloadManager ke public folder
-  if (Platform.OS === 'android' && Platform.Version >= 33) {
-    return true;
-  }
-
-  // Android 12 ke bawah butuh WRITE_EXTERNAL_STORAGE
-  if (Platform.OS === 'android') {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        {
-          title: 'Izin Akses Penyimpanan',
-          message:
-            'Aplikasi memerlukan akses ke penyimpanan untuk menyimpan file unduhan.',
-          buttonNeutral: 'Tanya Nanti',
-          buttonNegative: 'Batal',
-          buttonPositive: 'Izinkan',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  }
-  return true;
-};
+import { checkAndRequestDownloadPermission, saveToMediaStore } from '../../services/PermissionHelper';
 
 // --- KOMPONEN PREVIEW MODAL ---
 const PreviewModal = ({ visible, berkas, onClose, onShowStatus }: any) => {
@@ -96,7 +68,7 @@ const PreviewModal = ({ visible, berkas, onClose, onShowStatus }: any) => {
     }
 
     // Permission check
-    const hasPermission = await requestStoragePermission();
+    const hasPermission = await checkAndRequestDownloadPermission();
     if (!hasPermission) {
       onShowStatus({
         visible: true,
@@ -107,45 +79,38 @@ const PreviewModal = ({ visible, berkas, onClose, onShowStatus }: any) => {
       return;
     }
 
-    // Proceed with download...
-
-    const { dirs } = ReactNativeBlobUtil.fs;
-    const fileName = berkas.judul || 'Dokumen';
     const extension = berkas.file_type || 'pdf';
-    const path = `${dirs.DownloadDir}/${fileName}.${extension}`;
+    const fileName = `${berkas.judul || 'Dokumen'}.${extension}`;
 
     try {
       if (Platform.OS === 'android') {
-        ReactNativeBlobUtil.config({
+        onShowStatus({
+          visible: true,
+          type: 'info',
+          title: 'Mengunduh...',
+          message: 'Mohon tunggu sebentar.',
+        });
+
+        // 1. Download file ke cache
+        const res = await ReactNativeBlobUtil.config({
           fileCache: true,
-          addAndroidDownloads: {
-            useDownloadManager: true,
-            notification: false,
-            path: path,
-            description: 'Downloading file...',
-            mediaScannable: true,
-            title: fileName,
-          },
-        })
-          .fetch('GET', fileUrl)
-          .then(res => {
-            logger.info('PreviewModal', 'Download successful', { fileName });
-            onShowStatus({
-              visible: true,
-              type: 'success',
-              title: 'Download Berhasil',
-              message: `${fileName} telah tersimpan di folder Downloads.`,
-            });
-          })
-          .catch(err => {
-            logError('PreviewModal.download', err);
-            onShowStatus({
-              visible: true,
-              type: 'error',
-              title: 'Download Gagal',
-              message: 'Terjadi kesalahan saat mengunduh file.',
-            });
-          });
+          appendExt: extension,
+        }).fetch('GET', fileUrl);
+
+        // 2. Simpan ke MediaStore / folder kustom
+        const mediaType = isImage ? 'photo' : 'download';
+        const savedPath = await saveToMediaStore(res.path(), fileName, mediaType);
+
+        // 3. Hapus cache
+        res.flush();
+
+        logger.info('PreviewModal', 'Download successful', { fileName });
+        onShowStatus({
+          visible: true,
+          type: 'success',
+          title: 'Download Berhasil',
+          message: savedPath,
+        });
       } else {
         Linking.openURL(fileUrl);
         onShowStatus({
