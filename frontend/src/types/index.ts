@@ -124,6 +124,7 @@ export type RootStackParamList = {
   EditProfile: { user: UserData };
   Berkas: { user: UserData };
   StudentCard: { user: UserData };
+  ScannerScreen: undefined;
 };
 
 // ✅ API REQUEST/RESPONSE

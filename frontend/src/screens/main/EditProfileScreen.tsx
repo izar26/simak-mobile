@@ -85,43 +85,42 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Constants - Moved outside component to prevent recreation
 const LOCKED_COLUMNS = new Set([
   'nama',
-  'jenis_kelamin',
   'tempat_lahir',
   'tanggal_lahir',
   'agama_id_str',
   'kewarganegaraan',
+  'anak_keberapa',
+  'kebutuhan_khusus',
   'tinggi_badan',
   'berat_badan',
+  'jenis_kelamin',
+  'alamat_jalan',
+  'nomor_telepon_rumah',
+  'no_hp_akun',
+  'nik_ayah',
+  'nik_ibu',
+  'nik_wali',
   'nama_ayah',
   'nama_ibu',
   'nama_wali',
-  'pekerjaan_ayah_id_str',
-  'pekerjaan_ibu_id_str',
-  'pekerjaan_wali_id_str',
   'tahun_lahir_ayah',
   'tahun_lahir_ibu',
   'tahun_lahir_wali',
+  'pekerjaan_ayah_id_str',
+  'pekerjaan_ibu_id_str',
+  'pekerjaan_wali_id_str',
   'pendidikan_ayah_id_str',
   'pendidikan_ibu_id_str',
   'pendidikan_wali_id_str',
   'penghasilan_ayah_id_str',
   'penghasilan_ibu_id_str',
   'penghasilan_wali_id_str',
-  'alamat_jalan',
-  'no_hp_akun',
-  'nomor_telepon_rumah',
-  'anak_keberapa',
-  'nik',
-  'nik_ayah',
-  'nik_ibu',
-  'nik_wali',
 ]);
 
 const DISABLED_COLUMNS = new Set([
   'nipd',
   'nisn',
-  'kebutuhan_khusus',
-  'email_akun',
+  'nik',
 ]);
 
 const PEKERJAAN_OPTIONS = [
@@ -272,7 +271,7 @@ const PROFILE_STRENGTH_FIELDS = [
   'kabupaten_kota',
   'provinsi',
   'kode_pos',
-  'email_akun',
+  'email',
   'no_hp_akun',
   'nama_ayah',
   'tahun_lahir_ayah',
@@ -315,7 +314,7 @@ const LABEL_MAP: Record<string, string> = {
   tempat_lahir: 'Tempat Lahir',
   tanggal_lahir: 'Tanggal Lahir',
   alamat_jalan: 'Alamat Jalan',
-  email_akun: 'Email',
+  email: 'Email Aktif',
   no_hp_akun: 'No. HP',
   nik_ayah: 'NIK Ayah',
   nik_ibu: 'NIK Ibu',
@@ -2134,7 +2133,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
           userData.alamat ??
           userData.siswa?.alamat_jalan ??
           '',
-        email_akun: newOverrides.email_akun ?? userData.username ?? '',
+        email: newOverrides.email ?? userData.siswa?.email ?? '',
         nomor_telepon_rumah:
           newOverrides.nomor_telepon_rumah ??
           userData.siswa?.nomor_telepon_rumah ??
@@ -2324,7 +2323,7 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
           ...(userData.siswa || {}),
           ...newOverrides,
           alamat_jalan: newOverrides.alamat_jalan ?? userData.alamat ?? userData.siswa?.alamat_jalan ?? '',
-          email_akun: newOverrides.email_akun ?? userData.username ?? '',
+          email: newOverrides.email ?? userData.siswa?.email ?? '',
           nomor_telepon_rumah: newOverrides.nomor_telepon_rumah ?? userData.siswa?.nomor_telepon_rumah ?? userData.no_telepon ?? '',
           no_hp_akun: newOverrides.no_hp_akun ?? userData.no_hp ?? '',
         };
@@ -3003,13 +3002,13 @@ const EditProfileScreen = memo(({ navigation, route }: any) => {
                 </Text>
 
                 <InputField
-                  onAlert={handleShowStatus}
-                  label="Email Akun"
-                  fieldKey="email_akun"
+                  label="Email Aktif"
+                  fieldKey="email"
                   icon={FileText}
-                  value={formData.email_akun}
+                  value={formData.email}
                   onChangeText={handleChange}
-                  isPending={pendingFields.includes('email_akun')}
+                  isPending={pendingFields.includes('email')}
+                  onAlert={handleShowStatus}
                 />
                 <InputField
                   onAlert={handleShowStatus}

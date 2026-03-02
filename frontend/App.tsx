@@ -36,6 +36,7 @@ import PelanggaranScreen from './src/screens/main/PelanggaranScreen';
 import AnnouncementDetailScreen from './src/screens/AnnouncementDetailScreen'; // New
 import KeuanganScreen from './src/screens/main/KeuanganScreen';
 import UnduhanScreen from './src/screens/main/UnduhanScreen';
+import ScannerScreen from './src/screens/main/ScannerScreen';
 import { getToken } from './src/services/auth';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
@@ -268,6 +269,11 @@ function App() {
                 name="Unduhan"
                 component={UnduhanScreen}
                 options={{ animation: 'slide_from_right' }}
+              />
+              <Stack.Screen
+                name="ScannerScreen"
+                component={ScannerScreen}
+                options={{ animation: 'slide_from_bottom' }}
               />
             </Stack.Navigator>
           </BottomSheetModalProvider>

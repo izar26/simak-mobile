@@ -85,48 +85,43 @@ export const saveToMediaStore = async (sourcePath: string, fileName: string, med
     // Android 10+ (API 29+): Gunakan MediaCollection (Scoped Storage friendly)
     if (Platform.OS === 'android' && androidVersion >= 29) {
         try {
-            // Copy file ke folder publik yang sesuai (jika 'download' masuk ke Downloads, 'photo' masuk ke Pictures/DCIM)
-            // Note: ReactNativeBlobUtil.MediaCollection.copyToMediaStore menyalin dari file temp
-            // Parameter pertama adalah detail file, parameter kedua adalah tipe 'image'/'video', parameter ketiga adalah path sumber
-
-            // API Signature: copyToMediaStore(filedata, mediatype, path)
-            // filedata: { name, parentFolder, mimeType }
-
-            const mime = mediaType === 'photo' ? 'image/png' : 'application/pdf';
-            const type = mediaType === 'photo' ? 'image' : 'Download'; // 'Download' mungkin tidak didukung explicit sebagai tipe media, tapi coba 'Download'
-
-            // Jika tipe download/pdf, MediaCollection mungkin terbatas.
-            // Untuk gambar (Photo), ini cara terbaik.
-            if (mediaType === 'photo') {
-                await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
-                    {
-                        name: fileName,
-                        parentFolder: '', // root of Pictures/DCIM
-                        mimeType: 'image/png'
-                    },
-                    'image' as any,
-                    cleanSource
-                );
-                return 'Tersimpan di Galeri';
-            }
+            // Copy file ke folder publik 'Downloads/Simak Mobile'
+            await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
+                {
+                    name: fileName,
+                    parentFolder: 'Simak Mobile', // Akan membuat folder Simak Mobile di dalam Downloads
+                    mimeType: mediaType === 'photo' ? 'image/png' : 'application/pdf'
+                },
+                'Download', // Gunakan tipe Download agar file tersimpan di root Downloads HP, bukan App Data
+                cleanSource
+            );
+            return 'Tersimpan di folder Download/Simak Mobile';
+            
         } catch (e) {
             console.warn('MediaCollection failed, falling back to FS copy', e);
-            // Fallback ke metode copy biasa jika MediaCollection gagal (jarang terjadi di API 29+)
+            // Fallback ke metode copy biasa jika MediaCollection gagal
         }
     }
 
-    // 3. Fallback (Android 9 ke bawah ATAU jika MediaCollection gagal/tidak cocok)
-    // Kita anggap permission WRITE_EXTERNAL_STORAGE sudah diberikan via checkAndRequestDownloadPermission()
-
+    // 3. Fallback (Android 9 ke bawah ATAU jika MediaCollection gagal)
+    // Asumsi permission WRITE_EXTERNAL_STORAGE sudah diberikan
     const { dirs } = ReactNativeBlobUtil.fs;
-    const destPath = `${dirs.DownloadDir}/${fileName}`;
+    const targetDir = `${dirs.DownloadDir}/Simak Mobile`;
 
-    // Copy file langsung (cepat & hemat memori)
+    // Buat folder Simak Mobile di dalam DownloadDir jika belum ada
+    const isDir = await ReactNativeBlobUtil.fs.isDir(targetDir);
+    if (!isDir) {
+        await ReactNativeBlobUtil.fs.mkdir(targetDir);
+    }
+
+    const destPath = `${targetDir}/${fileName}`;
+    
+    // Copy file langsung ke folder public Download/Simak Mobile
     await ReactNativeBlobUtil.fs.cp(cleanSource, destPath);
 
-    // Scan agar muncul di Gallery
+    // Scan agar muncul di file manager/gallery
     if (Platform.OS === 'android') {
-        ReactNativeBlobUtil.fs.scanFile([{ path: destPath, mime: 'image/png' }]);
+        ReactNativeBlobUtil.fs.scanFile([{ path: destPath, mime: mediaType === 'photo' ? 'image/png' : 'application/pdf' }]);
     }
 
     return destPath;

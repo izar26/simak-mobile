@@ -52,6 +52,7 @@ import {
   Shield,
   AlertTriangle,
   X,
+  ScanLine,
 } from 'lucide-react-native';
 import { fetchWithSmartCache } from '../../utils/apiCache';
 import { getToken, logout } from '../../services/auth';
@@ -106,6 +107,9 @@ interface UserData {
   email?: string;
   alamat?: string; // Tambahkan ini
   siswa?: SiswaData;
+  can_scan_attendance?: boolean;
+  role_tugas?: string;
+  roles?: { name: string }[];
 }
 
 // ✅ THEME CONFIG
@@ -461,6 +465,17 @@ const HomeScreen = ({ navigation }: any) => {
     [isFemale],
   );
 
+  const displayRole = useMemo(() => {
+    if (user?.role_tugas) return user.role_tugas;
+    if (user?.roles && user.roles.length > 0) return user.roles[0].name;
+    return null;
+  }, [user]);
+
+  const canScan = useMemo(() => {
+    if (user?.can_scan_attendance !== undefined) return user.can_scan_attendance;
+    return user?.roles?.some((r: any) => r.name === 'Piket Siswa') || false;
+  }, [user]);
+
   const fotoUrl = useMemo(() => {
     if (!siswa?.foto || imageError) return null;
     return `${MAIN_APP_URL}/storage/${siswa.foto}`;
@@ -497,6 +512,17 @@ const HomeScreen = ({ navigation }: any) => {
         240,
         isManualRefresh,
       );
+      
+      const roleTugasServer = data.role_tugas;
+      const rawRoles = data.roles || [];
+      const hasPiketSiswa = rawRoles.some((r: any) => r.name === 'Piket Siswa');
+
+      console.log('=== DEBUG ROLE TUGAS ===', {
+        can_scan_attendance: data.can_scan_attendance ?? hasPiketSiswa,
+        role_tugas: roleTugasServer ?? (rawRoles.length > 0 ? rawRoles[0].name : null),
+        raw_roles: rawRoles
+      });
+
       setUser(data);
       setImageError(false);
     } catch (error) {
@@ -750,6 +776,15 @@ const HomeScreen = ({ navigation }: any) => {
                 )}
               </View>
 
+              {displayRole && (
+                 <View className="bg-amber-500/80 px-4 py-1.5 rounded-full mb-4 flex-row items-center backdrop-blur-sm shadow-md">
+                   <Shield size={14} color="white" className="mr-2" />
+                   <Text className="text-white font-bold text-xs uppercase tracking-widest">
+                     {displayRole}
+                   </Text>
+                 </View>
+              )}
+
               {siswa?.nama_rombel && (
                 <View className="bg-white/20 px-5 py-2 rounded-2xl border border-white/30 flex-row items-center backdrop-blur-sm">
                   <Award size={16} color="white" className="mr-2" />
@@ -951,8 +986,21 @@ const HomeScreen = ({ navigation }: any) => {
               </View>
             </SectionCard>
 
-            {/* Action Buttons */}
             <Animated.View entering={FadeInUp.delay(400)} className="mt-2">
+              
+              {canScan && (
+                <TouchableOpacity
+                  className="bg-emerald-500 p-5 rounded-2xl flex-row justify-center items-center shadow-lg mb-4 active:opacity-90"
+                  onPress={() => navigation.navigate('ScannerScreen')}
+                  style={{ elevation: 4 }}
+                >
+                  <ScanLine size={22} color="white" />
+                  <Text className="text-white font-bold ml-3 text-sm tracking-wide">
+                    Buka Scanner Absensi
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 className={`${theme.primary} p-5 rounded-2xl flex-row justify-center items-center shadow-lg mb-4 active:opacity-90`}
                 onPress={handleCetakBiodata}

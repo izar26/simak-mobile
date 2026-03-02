@@ -39,6 +39,7 @@ import {
   Megaphone,
   Info,
   CalendarDays,
+  ScanLine,
 } from 'lucide-react-native';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 import LinearGradient from 'react-native-linear-gradient';
@@ -731,8 +732,18 @@ const DashboardScreen = ({ navigation }: any) => {
               <Text className="text-slate-800 font-bold text-[17px] mb-4 tracking-tight">
                 Akses Cepat
               </Text>
-              <View className="flex-row flex-wrap justify-between">
-                {MENU_ITEMS.map((menu, i) => (
+              <View className="flex-row flex-wrap" style={{ justifyContent: 'space-between' }}>
+                {[
+                  ...((user?.can_scan_attendance || (user?.roles?.some((r: any) => r.name === 'Piket Siswa'))) ? [{
+                    label: 'Scanner',
+                    icon: ScanLine,
+                    color: '#10b981',
+                    bg: 'bg-emerald-50',
+                    border: 'border-emerald-100',
+                    nav: 'ScannerScreen',
+                  }] : []),
+                  ...MENU_ITEMS
+                ].map((menu, i) => (
                   <MenuButton
                     key={i}
                     item={menu}
@@ -740,6 +751,11 @@ const DashboardScreen = ({ navigation }: any) => {
                     user={user}
                   />
                 ))}
+                
+                {/* Dummy views to force left alignment on the last row if not perfectly divisible by 4 */}
+                <View style={{ width: MENU_ITEM_WIDTH }} />
+                <View style={{ width: MENU_ITEM_WIDTH }} />
+                <View style={{ width: MENU_ITEM_WIDTH }} />
               </View>
             </View>
 

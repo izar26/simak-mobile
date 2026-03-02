@@ -106,7 +106,7 @@ const StudentCardScreen = ({ navigation, route }: any) => {
       setAlertConfig({
         visible: true,
         title: 'Berhasil Disimpan!',
-        message: `Kartu pelajar tersimpan di Galeri/Download.`,
+        message: `${savedPath}`,
         type: 'success',
         onClose: () => setAlertConfig(prev => ({ ...prev, visible: false })),
       });

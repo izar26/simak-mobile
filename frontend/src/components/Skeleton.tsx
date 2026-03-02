@@ -31,20 +31,20 @@ const Skeleton = ({ width, height, style, variant = 'box', borderRadius, classNa
     return 12;
   };
 
+  // Default width fallback for animation
+  const width_val = typeof width === 'number' ? width : 300;
+
   const translateX = animatedValue.interpolate({
     inputRange: [0, 1],
     outputRange: [-width_val, width_val], // We need a concrete width for better effect
   });
 
-  // Default width fallback for animation
-  const width_val = typeof width === 'number' ? width : 300;
-
   return (
     <View
       style={[
         {
-          width: width,
-          height: height,
+          width: width as any,
+          height: height as any,
           backgroundColor: '#e2e8f0', // slate-200
           borderRadius: getBorderRadius(),
           overflow: 'hidden',
