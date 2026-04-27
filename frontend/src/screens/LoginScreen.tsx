@@ -13,9 +13,10 @@ import {
   Modal,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login } from '../services/auth';
 import api from '../services/api';
-import { MAIN_APP_URL } from '@env';
+import { MAIN_APP_URL, URL_ADMIN, X_ADMIN_ACCESS_KEY } from '@env';
 import {
   User,
   Lock,
@@ -116,8 +117,21 @@ const LoginScreen = ({ navigation, route }: any) => {
     setIsFetchingSchool(true);
     try {
       const response = await api.get('/sekolah');
-      logger.info('LoginScreen', 'Sekolah data fetched successfully');
-      setSekolah(response.data);
+      
+      const raw = response.data;
+      const mappedSchoolData = {
+        id: 1, // Dummy if not provided by /sekolah
+        nama: raw.nama,
+        alamat: raw.alamat,
+        logo: raw.logo,
+        telepon: raw.telepon,
+        email: raw.email,
+        website: raw.website,
+        npsn: raw.npsn || '000000',
+      };
+
+      logger.info('LoginScreen', 'Sekolah data fetched successfully from /sekolah API');
+      setSekolah(mappedSchoolData);
     } catch (error) {
       const appError = handleApiError(error);
       logError('LoginScreen.fetchSekolah', appError);
@@ -155,6 +169,14 @@ const LoginScreen = ({ navigation, route }: any) => {
       setLoading(false);
     }
   }, [username, password, navigation]);
+
+  const handleGantiSekolah = useCallback(async () => {
+    await AsyncStorage.removeItem('npsn');
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Npsn' }],
+    });
+  }, [navigation]);
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error' = 'error') => {
@@ -278,6 +300,9 @@ const LoginScreen = ({ navigation, route }: any) => {
                     <Text className="text-blue-100 text-sm mt-2 text-center font-medium opacity-90 px-4 leading-5">
                       {sekolah?.alamat || 'Sistem Informasi Manajemen Akademik'}
                     </Text>
+                    <TouchableOpacity onPress={handleGantiSekolah} className="mt-4 bg-white/20 px-4 py-1.5 rounded-full border border-white/30">
+                      <Text className="text-white text-xs font-bold uppercase tracking-wider">Ganti Sekolah</Text>
+                    </TouchableOpacity>
                   </>
                 )}
               </Animated.View>

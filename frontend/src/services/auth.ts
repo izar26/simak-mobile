@@ -4,7 +4,8 @@ import api from './api';
 
 export const login = async (username: any, password: any) => {
   try {
-    const response = await api.post('/login', { username, password });
+    const npsn = await AsyncStorage.getItem('npsn');
+    const response = await api.post('/login', { username, password, npsn });
 
     if (response.data.access_token) {
       // 🔒 1. SIMPAN TOKEN DI BRANKAS (Encrypted)

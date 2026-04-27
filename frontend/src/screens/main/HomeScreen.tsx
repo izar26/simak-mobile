@@ -728,13 +728,13 @@ const HomeScreen = ({ navigation }: any) => {
               <Shield size={100} color="white" />
             </View>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={() => navigation.navigate('EditProfile', { user })}
               className="absolute top-12 right-6 z-10 bg-white/20 p-3 rounded-2xl backdrop-blur-md border border-white/30 active:scale-95"
               style={{ elevation: 5 }}
             >
               <Edit3 size={20} color="white" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <View className="items-center pt-12 px-6">
               <View className="relative mb-6">

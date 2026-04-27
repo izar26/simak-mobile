@@ -11,7 +11,6 @@ import {
 } from '../utils/errorHandler';
 
 const api = axios.create({
-  baseURL: API_URL,
   timeout: 15000, // 15 seconds timeout
   headers: {
     'Content-Type': 'application/json',
@@ -40,6 +39,15 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Dynamic Multi-Tenant URL
+    let dynamicBaseUrl = await AsyncStorage.getItem('APP_API_URL');
+    if (!dynamicBaseUrl) {
+      dynamicBaseUrl = API_URL; // Fallback to .env default if not set
+    }
+    
+    // Set baseURL for this request
+    config.baseURL = dynamicBaseUrl;
 
     // Log request (only in dev)
     logApiRequest(config.method?.toUpperCase() || 'GET', config.url || '');

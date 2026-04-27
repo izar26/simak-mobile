@@ -25,6 +25,7 @@ import './global.css';
 
 import { checkAppUpdate, downloadAndInstallApk } from './src/services/UpdateService';
 import api from './src/services/api';
+import NpsnScreen from './src/screens/NpsnScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import EditProfileScreen from './src/screens/main/EditProfileScreen';
@@ -40,7 +41,7 @@ import ScannerScreen from './src/screens/main/ScannerScreen';
 import { getToken } from './src/services/auth';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
-import { API_URL, MAIN_APP_URL } from '@env';
+import { URL_ADMIN, X_ADMIN_ACCESS_KEY, API_URL, MAIN_APP_URL } from '@env';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,7 +49,7 @@ function App() {
   // Status: 'checking' (splash screen) or 'connected' (main app)
   // Error handling is now done via a popup modal on top of 'checking'
   const [status, setStatus] = useState<'checking' | 'connected'>('checking');
-  const [initialRoute, setInitialRoute] = useState('Login');
+  const [initialRoute, setInitialRoute] = useState('Npsn');
   const [schoolData, setSchoolData] = useState(null); // Data sekolah untuk LoginScreen
 
   // Error Modal State
@@ -89,9 +90,20 @@ function App() {
     try {
       console.log('Checking connection...');
 
-      // Health check endpoint & Get School Data
-      const response = await api.get('/sekolah', { timeout: 10000 });
-      setSchoolData(response.data); // Simpan data sekolah
+      const npsn = await AsyncStorage.getItem('npsn');
+
+      if (!npsn) {
+        setInitialRoute('Npsn');
+        setStatus('connected');
+        return;
+      }
+
+      // Health check endpoint using dynamic API
+      const response = await api.get('/sekolah');
+      if (!response.data) {
+        throw new Error('Sekolah tidak ditemukan');
+      }
+
       console.log('Connected.');
 
       // Check Token
@@ -223,6 +235,7 @@ function App() {
               initialRouteName={initialRoute}
               screenOptions={{ headerShown: false }}
             >
+              <Stack.Screen name="Npsn" component={NpsnScreen} options={{ animation: 'fade' }} />
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="MainTabs" component={MainTabNavigator} />
               <Stack.Screen

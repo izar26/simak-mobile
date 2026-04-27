@@ -118,6 +118,7 @@ export interface EditProfileFormData {
 
 // ✅ NAVIGATION
 export type RootStackParamList = {
+  Npsn: undefined;
   Login: { schoolData?: SekolahData };
   MainTabs: undefined;
   AnnouncementDetail: { item: AnnouncementItem };
